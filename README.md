@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white" alt="Docker Compose">
   <img src="https://img.shields.io/badge/Xray-VLESS%20%2B%20XHTTP%20%2B%20REALITY-0f766e" alt="Xray VLESS XHTTP REALITY">
   <img src="https://img.shields.io/badge/languages-10-0b1724" alt="10 interface languages">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0b1724" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
@@ -38,6 +39,7 @@
 - [Documentation](#documentation)
 - [Development](#development)
 - [Project status](#project-status)
+- [License](#license)
 
 ## What NoxRouteNeo is
 
@@ -256,4 +258,4 @@ NoxRouteNeo must only be used on infrastructure and networks you are authorized 
 
 ## License
 
-A distribution license has not yet been selected. Choose and add the license before the first public release.
+NoxRouteNeo is available under the [MIT License](LICENSE).
