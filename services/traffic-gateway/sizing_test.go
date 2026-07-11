@@ -51,6 +51,18 @@ func TestManualCapacityKeepsDetectedHostResources(t *testing.T) {
 	}
 }
 
+func TestCPUQuotaCountIsConservativeForFractionalCPU(t *testing.T) {
+	if cpuQuotaCount(100000, 100000) != 1 {
+		t.Fatal("one CPU quota was not detected")
+	}
+	if cpuQuotaCount(350000, 100000) != 3 {
+		t.Fatal("fractional CPU quota was not rounded down")
+	}
+	if cpuQuotaCount(-1, 100000) != 0 {
+		t.Fatal("unlimited CPU quota should not override the host count")
+	}
+}
+
 func TestAutomaticDurationAllowsAnExplicitOverride(t *testing.T) {
 	resolved, err := resolveAutomaticDuration("auto", 7*time.Minute)
 	if err != nil || resolved != 7*time.Minute {

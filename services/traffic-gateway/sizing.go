@@ -99,6 +99,54 @@ func calculateAutomaticSizing(cpuCount int, memoryMiB int) SizingMetadata {
 	}
 }
 
+func cpuQuotaCount(quota int64, period int64) int {
+	if quota <= 0 || period <= 0 {
+		return 0
+	}
+	count := int(quota / period)
+	if count < 1 {
+		return 1
+	}
+	return count
+}
+
+func readCPUQuota(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	fields := strings.Fields(string(content))
+	if len(fields) != 2 || fields[0] == "max" {
+		return 0
+	}
+	quota, quotaError := strconv.ParseInt(fields[0], 10, 64)
+	period, periodError := strconv.ParseInt(fields[1], 10, 64)
+	if quotaError != nil || periodError != nil {
+		return 0
+	}
+	return cpuQuotaCount(quota, period)
+}
+
+func readCPUCount() int {
+	count := runtime.GOMAXPROCS(0)
+	if quotaCount := readCPUQuota("/sys/fs/cgroup/cpu.max"); quotaCount > 0 {
+		return minimum(count, quotaCount)
+	}
+
+	quotaContent, quotaError := os.ReadFile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
+	periodContent, periodError := os.ReadFile("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+	if quotaError == nil && periodError == nil {
+		quota, quotaParseError := strconv.ParseInt(strings.TrimSpace(string(quotaContent)), 10, 64)
+		period, periodParseError := strconv.ParseInt(strings.TrimSpace(string(periodContent)), 10, 64)
+		if quotaParseError == nil && periodParseError == nil {
+			if quotaCount := cpuQuotaCount(quota, period); quotaCount > 0 {
+				return minimum(count, quotaCount)
+			}
+		}
+	}
+	return count
+}
+
 func readMemoryMiB() int {
 	memoryMiB := 1
 	content, err := os.ReadFile("/proc/meminfo")
@@ -126,7 +174,7 @@ func readMemoryMiB() int {
 }
 
 func detectAutomaticSizing() SizingMetadata {
-	return calculateAutomaticSizing(runtime.GOMAXPROCS(0), readMemoryMiB())
+	return calculateAutomaticSizing(readCPUCount(), readMemoryMiB())
 }
 
 func resolveConnectionSizing(value string, automatic SizingMetadata) (SizingMetadata, error) {
