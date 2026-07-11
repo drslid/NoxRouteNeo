@@ -1,0 +1,259 @@
+<p align="center">
+  <img src="docs/assets/noxrouteneo-logo.svg" alt="NoxRouteNeo" width="560">
+</p>
+
+<p align="center">
+  <strong>A self-hosted VLESS + XHTTP + REALITY gateway with a modern admin and user portal.</strong>
+  <br>
+  Deploy a private VPN server on one VPS with Docker, DuckDNS, usage controls, device QR codes and live telemetry.
+</p>
+
+<p align="center">
+  <a href="https://github.com/drslid/NoxRouteNeo/actions/workflows/ci.yml"><img src="https://github.com/drslid/NoxRouteNeo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/status-alpha-f59e0b" alt="Alpha status">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white" alt="Docker Compose">
+  <img src="https://img.shields.io/badge/Xray-VLESS%20%2B%20XHTTP%20%2B%20REALITY-0f766e" alt="Xray VLESS XHTTP REALITY">
+  <img src="https://img.shields.io/badge/languages-10-0b1724" alt="10 interface languages">
+</p>
+
+> [!IMPORTANT]
+> NoxRouteNeo is an alpha proof of concept. It is not an anonymity guarantee, a commercial VPN service, or a substitute for a reviewed security architecture. Validate it on a test VPS before relying on it.
+
+<p align="center">
+  <img src="docs/assets/dashboard.png" alt="NoxRouteNeo administration dashboard showing VPN traffic, resource usage and gateway health" width="1200">
+</p>
+
+## Table of contents
+
+- [What NoxRouteNeo is](#what-noxrouteneo-is)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [One-command installation](#one-command-installation)
+- [Roles and portals](#roles-and-portals)
+- [Connection profiles](#connection-profiles)
+- [Languages](#languages)
+- [Security model](#security-model)
+- [Known limitations](#known-limitations)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Project status](#project-status)
+
+## What NoxRouteNeo is
+
+NoxRouteNeo is a Docker-based, self-hosted VPN management platform for a single Ubuntu or Debian VPS. It combines an Xray `VLESS + XHTTP + REALITY` endpoint with a Next.js dashboard, PostgreSQL, DuckDNS automation and per-user access policies.
+
+It is designed for people who want a small personal VPN server without operating a multi-node control plane. The VPS hosts the web portal, API, database, certificates, traffic gateway and VPN runtime.
+
+## Features
+
+### Administration
+
+- Create owner-managed administrator accounts and VPN user accounts.
+- Set account expiry, data quota, TCP speed limit and maximum registered devices.
+- Configure DuckDNS domains, XHTTP, REALITY and instance defaults.
+- Monitor Xray CPU, memory, throughput, transfer volume and active connections.
+- Inspect per-user and per-device usage without recording browsing destinations.
+- Review security audit events and revoke account sessions.
+- Enable TOTP two-factor authentication.
+
+### User portal
+
+- View data usage, quota, connection time, expiry and active connections.
+- Register a separate credential for each phone, tablet or desktop.
+- Import a stable subscription URL or a direct VLESS string by QR code.
+- Select `Fast`, `Balanced` or `Stealth` for each registered device.
+- Revoke devices and manage password, sessions and TOTP.
+
+### Deployment
+
+- One Docker Compose stack for PostgreSQL, Next.js, Caddy, Xray and the traffic gateway.
+- Interactive installer for Ubuntu and Debian on `amd64` and `arm64`.
+- DuckDNS updates and Let's Encrypt certificate issuance during installation.
+- English, Spanish, French, German, Simplified Chinese, Arabic, Russian, Portuguese, Hindi and Urdu.
+- Right-to-left layout support for Arabic and Urdu.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Phone[Mobile or desktop client] -->|VLESS + XHTTP + REALITY :443| Xray
+  Browser[Admin or user browser] -->|HTTPS :8443| Caddy
+  Caddy --> Web[Next.js portal and API]
+  Web --> DB[(PostgreSQL)]
+  Xray --> Gateway[Per-account traffic gateway]
+  Gateway --> Internet[Internet through the VPS]
+  Runtime[Runtime Agent] --> Xray
+  Runtime --> DB
+  Runtime --> Gateway
+```
+
+| Service           | Responsibility                                     | Public exposure               |
+| ----------------- | -------------------------------------------------- | ----------------------------- |
+| `caddy`           | HTTPS and certificate management                   | TCP `80` and `8443`           |
+| `web`             | Next.js portals, Better Auth and API               | Loopback only                 |
+| `db`              | PostgreSQL application data                        | Private Docker network        |
+| `runtime`         | Xray lifecycle, policy sync and telemetry          | TCP `443`; health on loopback |
+| `traffic-gateway` | Per-account TCP rate limiting and capacity control | Private Docker network        |
+
+The Docker socket, PostgreSQL port, Xray API and traffic-gateway control API are not exposed publicly.
+
+## Requirements
+
+| Requirement      | Minimum                                                |
+| ---------------- | ------------------------------------------------------ |
+| Operating system | Ubuntu LTS or Debian                                   |
+| Architecture     | `amd64` or `arm64`                                     |
+| Access           | `root` or a user with `sudo`                           |
+| Network          | Public IPv4 address                                    |
+| Memory           | 1 GiB RAM; the installer can add temporary build swap  |
+| Disk             | About 7 GiB when images are built on the VPS           |
+| Public TCP ports | `80`, `443`, `8443`                                    |
+| DNS              | One DuckDNS subdomain and its account token             |
+
+Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
+
+## One-command installation
+
+Before running the command, create one DuckDNS subdomain, copy its token, and open TCP ports `80`, `443` and `8443` in the VPS provider firewall. Provider firewalls cannot be changed safely by a provider-independent installer.
+
+On a fresh Ubuntu or Debian VPS, copy and paste this single command:
+
+```bash
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
+```
+
+The installer asks only for:
+
+- interface language, with English selected by pressing Enter;
+- the existing DuckDNS subdomain name or full hostname;
+- the DuckDNS token, entered without terminal echo.
+
+The same domain serves the VPN on `443` and the web portal on `8443`. An optional Let's Encrypt contact email and separate admin/VPN domains remain available through unattended advanced variables, but are not needed for the normal installation.
+
+The command installs Git, Docker Engine and Docker Compose, validates the OS, architecture, memory, disk and ports, updates DuckDNS, generates every application secret, configures HTTPS and Xray, creates the initial owner, starts the stack and runs a strict local health report. It also adds the required UFW rules when UFW is already active.
+
+### First sign-in
+
+The final output contains:
+
+```text
+Admin URL: https://YOUR_DOMAIN.duckdns.org:8443
+VPN endpoint: YOUR_DOMAIN.duckdns.org:443
+Owner username: owner
+Temporary owner password: generated-once
+```
+
+Sign in, change the temporary password immediately, enable TOTP, review the default account limits, then create the first VPN user.
+
+For unattended provisioning, see [the installation guide](docs/INSTALLATION.md).
+
+## Roles and portals
+
+All accounts use the same sign-in URL. Better Auth redirects each role to the correct portal.
+
+| Role    | Capabilities                                                                   |
+| ------- | ------------------------------------------------------------------------------ |
+| `owner` | Full instance control, administrator creation and sensitive account operations |
+| `admin` | VPN user management, VPN settings, activity and operational monitoring         |
+| `user`  | Own usage, devices, QR codes, connection profiles and account security         |
+
+Web sessions expire after one hour. Administrators cannot promote other administrators, and only the owner can reset an administrator password.
+
+## Connection profiles
+
+Every profile keeps the same VPN standard: `VLESS + XHTTP + REALITY`.
+
+| Profile    | XHTTP behavior                                      | Intended use                                    |
+| ---------- | --------------------------------------------------- | ----------------------------------------------- |
+| `Fast`     | `stream-one`, lowest overhead                       | Stable networks and lower latency               |
+| `Balanced` | Default XHTTP behavior, device-specific short ID    | Recommended default                             |
+| `Stealth`  | `packet-up`, device-specific short ID and `spiderX` | More request variation with additional overhead |
+
+These profiles adjust transport behavior and compatibility. They do not provide a measurable anonymity or non-detection guarantee.
+
+## Languages
+
+The instance language is selected during installation and can later be changed in `Settings`. The selected language applies to every administrator and user on that VPS.
+
+| Language           | Locale  | Direction |
+| ------------------ | ------- | --------- |
+| English            | `en`    | LTR       |
+| Spanish            | `es`    | LTR       |
+| French             | `fr`    | LTR       |
+| German             | `de`    | LTR       |
+| Simplified Chinese | `zh-CN` | LTR       |
+| Arabic             | `ar`    | RTL       |
+| Russian            | `ru`    | LTR       |
+| Portuguese         | `pt`    | LTR       |
+| Hindi              | `hi`    | LTR       |
+| Urdu               | `ur`    | RTL       |
+
+## Security model
+
+- Passwords are managed by Better Auth and never stored in plaintext.
+- Subscription tokens are hashed; recoverable application secrets use AES-256-GCM encryption.
+- Production cookies are `Secure` and `HttpOnly`.
+- Login and subscription endpoints are rate limited; state-changing API calls enforce same-origin and role checks.
+- Database and internal control APIs stay on private networks or loopback.
+- Containers run with dropped capabilities, read-only filesystems where possible and `no-new-privileges`.
+- The application does not store browsing history, requested domains or destination URLs.
+
+The traffic gateway uses a fail-open path when it becomes unavailable so that browsing is not interrupted. During a bypass, per-account TCP speed limits are not enforced; the admin dashboard reports this state explicitly.
+
+Never commit `.env`, DuckDNS tokens, REALITY private keys, passwords, AWS credentials, SSH keys or application data.
+
+Security reports should follow [SECURITY.md](SECURITY.md).
+
+## Known limitations
+
+- The project is still an alpha POC and has not received an independent security audit.
+- Compatible clients must support recent Xray `XHTTP + REALITY` settings.
+- A QR code can be copied to another device; Xray alone cannot prove physical device identity.
+- TCP rate limiting is per account, while UDP remains direct for mobile compatibility.
+- Connection duration and active-session metrics are sampled rather than measured continuously.
+- The exit country is the VPS country; there is no multi-country exit pool.
+- NoxRouteNeo does not include Tor, payments, multi-node orchestration or domain rotation.
+
+## Documentation
+
+- [Installation on Ubuntu and Debian](docs/INSTALLATION.md)
+- [Local development](docs/DEVELOPMENT.md)
+- [VPS sizing and benchmarks](docs/SIZING.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+
+The public documentation and future GitHub Pages site are intentionally separated from the private admin and user portals hosted on the VPS.
+
+## Development
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+`pnpm check` runs ESLint, TypeScript, unit tests, ShellCheck, installer tests, Go traffic-gateway tests, Python Runtime Agent tests and the production Next.js build.
+
+The monorepo uses pnpm workspaces and Turborepo:
+
+```text
+apps/web                 Next.js application and API
+packages/auth            Better Auth configuration and permissions
+packages/contracts       Shared Zod contracts
+packages/db              Drizzle schema and migrations
+packages/ui              Shared UI components
+services/runtime         Xray Runtime Agent
+services/traffic-gateway Per-account traffic gateway
+infra                    Caddy and local development infrastructure
+```
+
+## Project status
+
+The current target is a reproducible single-VPS release with a simple installation path, documented sizing benchmarks and a GitHub Pages documentation site. No repository content is pushed automatically by the installer.
+
+NoxRouteNeo must only be used on infrastructure and networks you are authorized to operate. The operator remains responsible for provider terms, local law, abuse handling and server security.
+
+## License
+
+A distribution license has not yet been selected. Choose and add the license before the first public release.

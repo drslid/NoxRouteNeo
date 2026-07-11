@@ -1,0 +1,31 @@
+{
+  "name": "@noxroute/auth",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./permissions": "./src/permissions.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "1.6.23",
+    "@noxroute/db": "workspace:*",
+    "better-auth": "1.6.23",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  }
+}

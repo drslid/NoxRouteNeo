@@ -1,0 +1,39 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "DATABASE_URL",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "APP_ENCRYPTION_KEY",
+    "DRIZZLE_MIGRATIONS_PATH",
+    "RUN_DB_MIGRATIONS",
+    "SETUP_TOKEN",
+    "NEXT_PUBLIC_APP_NAME",
+    "NOXROUTE_ADMIN_URL",
+    "NOXROUTE_VPN_DOMAIN",
+    "NOXROUTE_VPN_PORT"
+  ],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@noxroute/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^test"]
+    }
+  }
+}

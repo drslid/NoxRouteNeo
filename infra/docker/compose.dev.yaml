@@ -1,0 +1,30 @@
+name: noxrouteneo-next-dev
+
+services:
+  postgres-next:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-noxrouteneo}
+      POSTGRES_USER: ${POSTGRES_USER:-noxroute}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-noxroute-local-dev}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_next_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-noxroute} -d ${POSTGRES_DB:-noxrouteneo}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - next-data
+
+volumes:
+  postgres_next_data:
+
+networks:
+  next-data:
+    driver: bridge

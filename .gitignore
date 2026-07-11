@@ -1,0 +1,40 @@
+# Local secrets and runtime files
+.env
+.env.*
+!.env.example
+secrets/
+runtime/
+data/
+backups/
+logs/
+.internal/
+
+# SSH, cloud and provider credentials
+*.pem
+*.key
+id_*
+aws-credentials*
+duckdns-token*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build/cache artifacts
+node_modules/
+.next/
+.turbo/
+coverage/
+dist/
+build/
+.cache/
+*.tsbuildinfo
+__pycache__/
+
+# Local databases and generated reports
+*.db
+*.db-journal
+playwright-report/
+test-results/

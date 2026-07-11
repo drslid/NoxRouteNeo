@@ -1,0 +1,202 @@
+name: noxrouteneo
+
+services:
+  db:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-noxrouteneo}
+      POSTGRES_USER: ${POSTGRES_USER:-noxroute}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - ${NOXROUTE_ROOT:-/opt/noxrouteneo}/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    pids_limit: 200
+    networks:
+      - data
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-noxroute}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-noxrouteneo}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_URL: ${ADMIN_URL:?ADMIN_URL is required}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?APP_ENCRYPTION_KEY is required}
+      SETUP_TOKEN: ${SETUP_TOKEN:?SETUP_TOKEN is required}
+      DRIZZLE_MIGRATIONS_PATH: /app/migrations
+      RUN_DB_MIGRATIONS: "true"
+      NOXROUTE_ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}
+      NOXROUTE_VPN_DOMAIN: ${VPN_DOMAIN:?VPN_DOMAIN is required}
+      APP_LOCALE: ${APP_LOCALE:-en}
+      NODE_OPTIONS: --max-old-space-size=384
+    ports:
+      - "127.0.0.1:${WEB_LOOPBACK_PORT:-3000}:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 250
+    networks:
+      - edge
+      - data
+
+  caddy:
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    command:
+      [
+        "caddy",
+        "run",
+        "--config",
+        "/etc/caddy/Caddyfile",
+        "--adapter",
+        "caddyfile",
+      ]
+    ports:
+      - "80:80"
+      - "${ADMIN_HTTPS_PORT:-8443}:${ADMIN_HTTPS_PORT:-8443}"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${NOXROUTE_ROOT:-/opt/noxrouteneo}/data/caddy:/data
+      - ${NOXROUTE_ROOT:-/opt/noxrouteneo}/data/caddy-config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 100
+    networks:
+      - edge
+
+  traffic-gateway:
+    build:
+      context: .
+      dockerfile: services/traffic-gateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      TRAFFIC_GATEWAY_TOKEN: ${TRAFFIC_GATEWAY_TOKEN:?TRAFFIC_GATEWAY_TOKEN is required}
+      MAX_CONNECTIONS: ${TRAFFIC_GATEWAY_MAX_CONNECTIONS:-4096}
+      MINIMUM_IDLE_TO_SHED: ${TRAFFIC_GATEWAY_MINIMUM_IDLE_TO_SHED:-30s}
+      MAX_CONNECTION_IDLE: ${TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE:-10m}
+      MAX_LIMITER_WAIT: ${TRAFFIC_GATEWAY_MAX_LIMITER_WAIT:-1s}
+      PRIORITY_BYTES_PER_DIRECTION: ${TRAFFIC_GATEWAY_PRIORITY_BYTES:-32768}
+      PRIORITY_RESET_AFTER_IDLE: ${TRAFFIC_GATEWAY_PRIORITY_RESET_AFTER_IDLE:-750ms}
+    expose:
+      - "1080"
+      - "8080"
+    healthcheck:
+      test: ["CMD", "/traffic-gateway", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - traffic
+
+  runtime:
+    build:
+      context: .
+      dockerfile: services/runtime/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      caddy:
+        condition: service_healthy
+      traffic-gateway:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-noxroute}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-noxrouteneo}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?APP_ENCRYPTION_KEY is required}
+      CADDY_ADMIN_URL: http://caddy:2019
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-}
+      SERVER_BANDWIDTH_MBIT: ${SERVER_BANDWIDTH_MBIT:-100}
+      TRAFFIC_GATEWAY_TOKEN: ${TRAFFIC_GATEWAY_TOKEN:?TRAFFIC_GATEWAY_TOKEN is required}
+      TRAFFIC_GATEWAY_URL: http://traffic-gateway:8080
+      TRAFFIC_GATEWAY_SOCKS_HOST: traffic-gateway
+      TRAFFIC_GATEWAY_SOCKS_PORT: "1080"
+      RUNTIME_POLL_SECONDS: "2"
+      XRAY_LISTEN_PORT: "10443"
+    ports:
+      - "443:10443"
+      - "127.0.0.1:${RUNTIME_HEALTH_PORT:-18081}:8081"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+      - /runtime:rw,noexec,nosuid,uid=10001,gid=10001,mode=0700,size=32m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 300
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - edge
+      - data
+      - traffic
+
+networks:
+  edge:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true
+  traffic:
+    driver: bridge

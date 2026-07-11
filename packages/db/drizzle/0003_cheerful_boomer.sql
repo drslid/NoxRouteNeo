@@ -1,0 +1,1 @@
+ALTER TABLE "instance_settings" ADD COLUMN "app_locale" text DEFAULT 'en' NOT NULL;

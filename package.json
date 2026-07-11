@@ -1,0 +1,32 @@
+{
+  "name": "noxrouteneo",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "node scripts/build.mjs",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "check": "turbo lint && turbo typecheck && turbo test && pnpm lint:shell && pnpm test:services && pnpm build",
+    "lint:shell": "bash scripts/lint-shell.sh",
+    "test:services": "bash scripts/test-services.sh",
+    "db:generate": "pnpm --filter @noxroute/db db:generate",
+    "db:migrate": "pnpm --filter @noxroute/db db:migrate",
+    "db:studio": "pnpm --filter @noxroute/db db:studio",
+    "db:up": "docker compose -f infra/docker/compose.dev.yaml up -d postgres-next",
+    "db:down": "docker compose -f infra/docker/compose.dev.yaml down",
+    "bootstrap:owner": "pnpm --filter @noxroute/web bootstrap:owner",
+    "web": "pnpm --filter @noxroute/web"
+  },
+  "devDependencies": {
+    "auth": "1.6.23",
+    "prettier": "3.9.5",
+    "turbo": "2.10.4",
+    "typescript": "5.9.3"
+  }
+}

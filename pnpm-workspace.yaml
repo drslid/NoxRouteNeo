@@ -1,0 +1,20 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Installs are explicit and frozen in CI/Docker; scripts must never mutate dependencies.
+verifyDepsBeforeRun: false
+
+overrides:
+  esbuild: 0.25.0
+  postcss: 8.5.10
+
+allowBuilds:
+  "@node-rs/argon2": true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - lucide-react@1.24.0
+  - prettier@3.9.5

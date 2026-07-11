@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 144" role="img" aria-labelledby="title description">
+  <title id="title">NoxRouteNeo</title>
+  <desc id="description">NoxRouteNeo route mark and wordmark</desc>
+  <rect x="8" y="8" width="128" height="128" rx="30" fill="#0b1724"/>
+  <path d="M40 98V51A11 11 0 0 1 60.6 46l22.8 46.2A11 11 0 0 0 104 87.4V42" fill="none" stroke="#f8fafc" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="40" cy="98" r="8" fill="#2dd4bf"/>
+  <circle cx="104" cy="42" r="8" fill="#fb7185"/>
+  <text x="166" y="89" fill="#0b1724" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="54" font-weight="700" letter-spacing="0">NoxRoute</text>
+  <text x="417" y="89" fill="#0f766e" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="54" font-weight="700" letter-spacing="0">Neo</text>
+  <text x="170" y="116" fill="#64748b" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="500" letter-spacing="0">Self-hosted private gateway</text>
+</svg>
