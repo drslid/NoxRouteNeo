@@ -18,6 +18,7 @@ import { getAdminDashboard } from "@/data/dashboard";
 import { formatBytes } from "@/lib/format";
 import { intlLocale } from "@/i18n/config";
 import { getTranslations } from "@/i18n/server";
+import { sizingProfileMessageKey } from "@/i18n/labels";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage() {
   const { locale, t } = await getTranslations();
   const numberLocale = intlLocale(locale);
-  const { summary, gateway, samples } = await getAdminDashboard();
+  const { summary, gateway, sizing, samples } = await getAdminDashboard();
   const latestSample = samples.at(-1);
   const gatewayBadgeVariant =
     gateway.status === "ready"
@@ -231,7 +232,16 @@ export default async function AdminDashboardPage() {
               </p>
             </div>
           </div>
-          <Badge variant={gatewayBadgeVariant}>{gatewayStatusLabel}</Badge>
+          <div className="flex flex-wrap justify-end gap-2">
+            {sizing && (
+              <Badge variant="outline" dir="ltr">
+                {t(sizingProfileMessageKey(sizing.profile))} · {sizing.cpuCount}
+                vCPU · {Math.round(sizing.memoryBytes / 1024 / 1024)} MiB ·{" "}
+                {sizing.serverBandwidthMbps} Mbps
+              </Badge>
+            )}
+            <Badge variant={gatewayBadgeVariant}>{gatewayStatusLabel}</Badge>
+          </div>
         </CardHeader>
         <CardContent className="grid p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {gatewayMetrics.map((metric) => (

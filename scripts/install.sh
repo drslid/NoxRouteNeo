@@ -307,8 +307,9 @@ write_environment() {
     printf 'APP_ENCRYPTION_KEY=%s\n' "${encryption_key}"
     printf 'SETUP_TOKEN=%s\n' "${setup_token}"
     printf 'TRAFFIC_GATEWAY_TOKEN=%s\n' "${traffic_gateway_token}"
-    printf 'TRAFFIC_GATEWAY_MAX_CONNECTIONS=4096\n'
-    printf 'TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE=10m\n'
+    printf 'TRAFFIC_GATEWAY_MAX_CONNECTIONS=%s\n' "${TRAFFIC_GATEWAY_MAX_CONNECTIONS:-auto}"
+    printf 'TRAFFIC_GATEWAY_MINIMUM_IDLE_TO_SHED=%s\n' "${TRAFFIC_GATEWAY_MINIMUM_IDLE_TO_SHED:-auto}"
+    printf 'TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE=%s\n' "${TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE:-auto}"
     printf 'TRAFFIC_GATEWAY_MAX_LIMITER_WAIT=1s\n'
     printf 'APP_LOCALE=%s\n' "${APP_LOCALE}"
     printf 'ADMIN_DOMAIN=%s\n' "${ADMIN_DOMAIN}"
@@ -316,7 +317,7 @@ write_environment() {
     printf 'ADMIN_HTTPS_PORT=%s\n' "${ADMIN_HTTPS_PORT}"
     printf 'ADMIN_URL=https://%s:%s\n' "${ADMIN_DOMAIN}" "${ADMIN_HTTPS_PORT}"
     printf 'LETSENCRYPT_EMAIL=%s\n' "${LETSENCRYPT_EMAIL}"
-    printf 'SERVER_BANDWIDTH_MBIT=%s\n' "${SERVER_BANDWIDTH_MBIT:-100}"
+    printf 'SERVER_BANDWIDTH_MBIT=%s\n' "${SERVER_BANDWIDTH_MBIT:-auto}"
   } | ${SUDO} tee "${ENV_FILE}" >/dev/null
   ${SUDO} chmod 600 "${ENV_FILE}"
 }

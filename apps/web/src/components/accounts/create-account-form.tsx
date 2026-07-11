@@ -14,17 +14,17 @@ import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
 
-const speedOptions = [0, 2, 5, 10, 20, 50, 100];
-
 export function CreateAccountForm({
   canCreateAdmin,
   vpnDefaults,
+  speedOptions,
 }: {
   canCreateAdmin: boolean;
   vpnDefaults: Pick<
     CreateAccountInput,
     "maxDevices" | "maxDays" | "maxGigabytes" | "speedLimitMbps"
   >;
+  speedOptions: number[];
 }) {
   const router = useRouter();
   const { t } = useI18n();

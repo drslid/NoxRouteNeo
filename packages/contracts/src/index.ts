@@ -124,6 +124,7 @@ export const updateInstanceSettingsSchema = z.object({
   defaultMaxGigabytes: nullablePositiveNumber,
   defaultSpeedLimitMbps: z.number().int().min(0).max(1000),
   serverBandwidthLimitPercent: z.number().int().min(25).max(100),
+  serverBandwidthMbps: z.number().int().positive().max(100_000).nullable(),
   subscriptionEnabled: z.boolean(),
   enforceQuota: z.boolean(),
   enforceExpiry: z.boolean(),

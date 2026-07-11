@@ -108,6 +108,7 @@ export const instanceSettings = pgTable("instance_settings", {
   serverBandwidthLimitPercent: integer("server_bandwidth_limit_percent")
     .notNull()
     .default(90),
+  serverBandwidthMbps: integer("server_bandwidth_mbps"),
   subscriptionEnabled: boolean("subscription_enabled").notNull().default(true),
   enforceQuota: boolean("enforce_quota").notNull().default(true),
   enforceExpiry: boolean("enforce_expiry").notNull().default(true),

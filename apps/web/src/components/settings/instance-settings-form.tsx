@@ -14,14 +14,18 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/client";
 import { localeOptions } from "@/i18n/config";
 
-const speedOptions = [0, 2, 5, 10, 20, 50, 100];
-
 export function InstanceSettingsForm({
   initialValues,
   duckdnsConfigured,
+  recommendedBandwidthMbps,
+  bandwidthOptions,
+  speedOptions,
 }: {
   initialValues: UpdateInstanceSettingsInput;
   duckdnsConfigured: boolean;
+  recommendedBandwidthMbps: number;
+  bandwidthOptions: number[];
+  speedOptions: number[];
 }) {
   const router = useRouter();
   const { t } = useI18n();
@@ -119,8 +123,29 @@ export function InstanceSettingsForm({
             />
           </Field>
           <Field
+            label={t("settings.availableBandwidth")}
+            hint={t("settings.bandwidthEstimate")}
+          >
+            <Select
+              {...form.register("serverBandwidthMbps", {
+                setValueAs: (value) => (value === "" ? null : Number(value)),
+              })}
+            >
+              <option value="">
+                {t("settings.bandwidthAutomatic", {
+                  mbps: recommendedBandwidthMbps,
+                })}
+              </option>
+              {bandwidthOptions.map((bandwidth) => (
+                <option key={bandwidth} value={bandwidth}>
+                  {bandwidth} Mbps
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
             label={t("settings.serverBandwidth")}
-            hint={t("settings.udpDirect")}
+            hint={t("settings.bandwidthGuardHelp")}
           >
             <Select
               {...form.register("serverBandwidthLimitPercent", {

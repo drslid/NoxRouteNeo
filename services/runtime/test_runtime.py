@@ -47,6 +47,30 @@ def runtime_model(gateway_available: bool = True) -> dict[str, object]:
 
 
 class TrafficGatewayRuntimeTests(unittest.TestCase):
+    def test_host_sizing_scales_with_cpu_and_memory(self) -> None:
+        small = runtime.calculate_host_sizing(2, 1024 * 1024 * 1024)
+        large = runtime.calculate_host_sizing(8, 8 * 1024 * 1024 * 1024)
+        self.assertEqual((small.connection_capacity, small.profile), (2048, "small"))
+        self.assertEqual(
+            (large.connection_capacity, large.profile),
+            (16384, "high-capacity"),
+        )
+        self.assertLess(
+            small.recommended_bandwidth_mbps,
+            large.recommended_bandwidth_mbps,
+        )
+
+    def test_database_bandwidth_override_wins_over_automatic_value(self) -> None:
+        bandwidth, mode = runtime.effective_server_bandwidth(
+            {"server_bandwidth_mbps": 375}
+        )
+        self.assertEqual((bandwidth, mode), (375, "manual"))
+
+    def test_bandwidth_guardrail_caps_at_one_hundred_percent(self) -> None:
+        self.assertEqual(runtime.calculate_global_bandwidth_limit(250, 100), 250)
+        self.assertEqual(runtime.calculate_global_bandwidth_limit(250, 80), 200)
+        self.assertEqual(runtime.calculate_global_bandwidth_limit(0, 80), 0)
+
     def test_gateway_credential_matches_hmac_contract(self) -> None:
         expected = base64.urlsafe_b64encode(
             hmac.new(

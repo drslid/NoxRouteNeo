@@ -4,6 +4,8 @@ import { db, instanceSettings } from "@noxroute/db";
 
 import { CreateAccountForm } from "@/components/accounts/create-account-form";
 import { requireAdmin } from "@/lib/session";
+import { getRuntimeSizing } from "@/lib/runtime-health";
+import { speedLimitOptions } from "@/lib/sizing";
 import { getTranslations } from "@/i18n/server";
 
 export const metadata: Metadata = { title: "Create account" };
@@ -11,7 +13,10 @@ export const metadata: Metadata = { title: "Create account" };
 export default async function NewAccountPage() {
   const { role } = await requireAdmin();
   const { t } = await getTranslations();
-  const [settings] = await db.select().from(instanceSettings).limit(1);
+  const [[settings], runtimeSizing] = await Promise.all([
+    db.select().from(instanceSettings).limit(1),
+    getRuntimeSizing(),
+  ]);
   const defaultQuotaGigabytes = settings?.defaultQuotaBytes
     ? Number(settings.defaultQuotaBytes) / 1024 / 1024 / 1024
     : null;
@@ -36,6 +41,12 @@ export default async function NewAccountPage() {
         <CardContent className="p-5 sm:p-6">
           <CreateAccountForm
             canCreateAdmin={role === "owner"}
+            speedOptions={speedLimitOptions(
+              settings?.serverBandwidthMbps ??
+                runtimeSizing?.serverBandwidthMbps ??
+                100,
+              [settings?.defaultSpeedLimitMbps ?? 0],
+            )}
             vpnDefaults={{
               maxDevices: settings?.defaultMaxDevices ?? 2,
               maxDays: settings?.defaultMaxDays ?? null,

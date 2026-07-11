@@ -38,7 +38,7 @@ XRAY_CONFIG_PATH = Path(os.environ.get("XRAY_CONFIG_PATH", "/runtime/config.json
 XRAY_LISTEN_PORT = int(os.environ.get("XRAY_LISTEN_PORT", "10443"))
 XRAY_API_PORT = int(os.environ.get("XRAY_API_PORT", "10085"))
 POLL_SECONDS = max(1, int(os.environ.get("RUNTIME_POLL_SECONDS", "2")))
-SERVER_BANDWIDTH_MBIT = max(0, int(os.environ.get("SERVER_BANDWIDTH_MBIT", "0")))
+SERVER_BANDWIDTH_SETTING = os.environ.get("SERVER_BANDWIDTH_MBIT", "auto").strip()
 CADDY_ADMIN_URL = os.environ.get("CADDY_ADMIN_URL", "http://caddy:2019")
 LETSENCRYPT_EMAIL = os.environ.get("LETSENCRYPT_EMAIL", "")
 TRAFFIC_GATEWAY_URL = os.environ.get(
@@ -54,7 +54,7 @@ TRAFFIC_GATEWAY_TOKEN = os.environ.get("TRAFFIC_GATEWAY_TOKEN", "")
 DUCKDNS_TOKEN_FILE = Path(
     os.environ.get("DUCKDNS_TOKEN_FILE", "/run/secrets/duckdns_token")
 )
-RUNTIME_VERSION = "1.2.0"
+RUNTIME_VERSION = "1.3.0"
 
 _encoded_key = os.environ.get("APP_ENCRYPTION_KEY", "")
 try:
@@ -72,6 +72,113 @@ def db_connection() -> psycopg.Connection[dict[str, Any]]:
         connect_timeout=10,
         application_name="noxroute-runtime",
     )
+
+
+@dataclass(frozen=True)
+class HostSizing:
+    cpu_count: int
+    memory_bytes: int
+    connection_capacity: int
+    profile: str
+    recommended_bandwidth_mbps: int
+
+
+def _floor_power_of_two(value: int) -> int:
+    result = 1
+    while result <= value // 2:
+        result *= 2
+    return result
+
+
+def _sizing_profile(capacity: int) -> tuple[str, int]:
+    if capacity <= 1024:
+        return "compact", 50
+    if capacity <= 2048:
+        return "small", 100
+    if capacity <= 4096:
+        return "standard", 250
+    if capacity <= 8192:
+        return "performance", 500
+    return "high-capacity", 1000
+
+
+def calculate_host_sizing(cpu_count: int, memory_bytes: int) -> HostSizing:
+    cpu_count = max(1, cpu_count)
+    memory_bytes = max(1024 * 1024, memory_bytes)
+    memory_mib = max(1, memory_bytes // 1024 // 1024)
+    budget = min(cpu_count * 2048, memory_mib * 3)
+    capacity = _floor_power_of_two(max(512, min(16384, budget)))
+    profile, bandwidth = _sizing_profile(capacity)
+    return HostSizing(
+        cpu_count=cpu_count,
+        memory_bytes=memory_bytes,
+        connection_capacity=capacity,
+        profile=profile,
+        recommended_bandwidth_mbps=bandwidth,
+    )
+
+
+def _cgroup_cpu_limit() -> int | None:
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text(
+            encoding="utf-8"
+        ).strip().split()
+        if quota == "max":
+            return None
+        return max(1, int(quota) // int(period))
+    except (OSError, ValueError):
+        return None
+
+
+def _cgroup_memory_limit() -> int | None:
+    try:
+        value = Path("/sys/fs/cgroup/memory.max").read_text(
+            encoding="utf-8"
+        ).strip()
+        if value == "max":
+            return None
+        return max(1024 * 1024, int(value))
+    except (OSError, ValueError):
+        return None
+
+
+def detect_host_sizing() -> HostSizing:
+    cpu_count = max(1, os.cpu_count() or 1)
+    cpu_limit = _cgroup_cpu_limit()
+    if cpu_limit is not None:
+        cpu_count = min(cpu_count, cpu_limit)
+    memory_bytes = int(psutil.virtual_memory().total)
+    memory_limit = _cgroup_memory_limit()
+    if memory_limit is not None:
+        memory_bytes = min(memory_bytes, memory_limit)
+    return calculate_host_sizing(cpu_count, memory_bytes)
+
+
+HOST_SIZING = detect_host_sizing()
+
+
+def effective_server_bandwidth(
+    settings: dict[str, Any] | None = None,
+) -> tuple[int, str]:
+    database_value = settings.get("server_bandwidth_mbps") if settings else None
+    if database_value is not None:
+        return max(1, int(database_value)), "manual"
+    if SERVER_BANDWIDTH_SETTING.lower() in {"", "auto"}:
+        return HOST_SIZING.recommended_bandwidth_mbps, "auto"
+    try:
+        return max(0, int(SERVER_BANDWIDTH_SETTING)), "environment"
+    except ValueError as error:
+        raise RuntimeError(
+            "SERVER_BANDWIDTH_MBIT must be auto or a non-negative integer"
+        ) from error
+
+
+def calculate_global_bandwidth_limit(
+    server_bandwidth_mbps: int, bandwidth_percent: int
+) -> int:
+    if server_bandwidth_mbps <= 0:
+        return 0
+    return round(server_bandwidth_mbps * bandwidth_percent / 100)
 
 
 def encrypt_secret(value: str) -> tuple[str, str]:
@@ -216,6 +323,12 @@ class RuntimeAgent:
             "traffic_gateway": "starting",
             "last_error": None,
             "version": RUNTIME_VERSION,
+            "sizing_profile": HOST_SIZING.profile,
+            "detected_cpu_count": HOST_SIZING.cpu_count,
+            "detected_memory_bytes": HOST_SIZING.memory_bytes,
+            "recommended_bandwidth_mbps": (
+                HOST_SIZING.recommended_bandwidth_mbps
+            ),
         }
 
     def set_health(self, **values: Any) -> None:
@@ -468,11 +581,12 @@ class RuntimeAgent:
                 },
             )["users"].append(client["email"])
 
+        server_bandwidth_mbps, bandwidth_mode = effective_server_bandwidth(
+            dict(settings)
+        )
         bandwidth_percent = int(settings["server_bandwidth_limit_percent"] or 100)
-        global_limit = (
-            round(SERVER_BANDWIDTH_MBIT * bandwidth_percent / 100)
-            if SERVER_BANDWIDTH_MBIT > 0 and bandwidth_percent < 100
-            else 0
+        global_limit = calculate_global_bandwidth_limit(
+            server_bandwidth_mbps, bandwidth_percent
         )
         accesses = []
         for access in grouped.values():
@@ -487,6 +601,8 @@ class RuntimeAgent:
             "clients": clients,
             "accesses": accesses,
             "global_limit_mbps": global_limit,
+            "server_bandwidth_mbps": server_bandwidth_mbps,
+            "server_bandwidth_mode": bandwidth_mode,
             "gateway_available": False,
         }
 
@@ -1050,6 +1166,7 @@ https://{domain}:{port} {{
                 )
                 gateway_available = self.traffic_gateway.reconcile(model)
                 model["gateway_available"] = gateway_available
+                gateway_sizing = self.traffic_gateway.health.get("sizing", {})
                 gateway_status = "standby"
                 if gateway_required:
                     gateway_status = "ready" if gateway_available else "bypassed"
@@ -1076,6 +1193,31 @@ https://{domain}:{port} {{
                     traffic_gateway_health_probes=int(
                         self.traffic_gateway.health.get("health_probes", 0)
                     ),
+                    traffic_gateway_capacity_mode=str(
+                        gateway_sizing.get("mode", "auto")
+                    ),
+                    traffic_gateway_minimum_idle_seconds=int(
+                        gateway_sizing.get("minimum_idle_seconds", 0)
+                    ),
+                    traffic_gateway_maximum_idle_seconds=int(
+                        gateway_sizing.get("maximum_idle_seconds", 0)
+                    ),
+                    sizing_profile=str(
+                        gateway_sizing.get("profile", HOST_SIZING.profile)
+                    ),
+                    detected_cpu_count=int(
+                        gateway_sizing.get("cpu_count", HOST_SIZING.cpu_count)
+                    ),
+                    detected_memory_bytes=int(
+                        gateway_sizing.get(
+                            "memory_mib", HOST_SIZING.memory_bytes // 1024 // 1024
+                        )
+                    )
+                    * 1024
+                    * 1024,
+                    recommended_bandwidth_mbps=HOST_SIZING.recommended_bandwidth_mbps,
+                    server_bandwidth_mbps=int(model["server_bandwidth_mbps"]),
+                    server_bandwidth_mode=str(model["server_bandwidth_mode"]),
                 )
                 fingerprint = self.fingerprint(model)
                 xray_stopped = not self.xray or self.xray.poll() is not None

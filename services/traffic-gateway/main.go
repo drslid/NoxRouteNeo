@@ -64,12 +64,28 @@ func main() {
 	if len(secret) < 32 {
 		log.Fatal("TRAFFIC_GATEWAY_TOKEN must contain at least 32 characters")
 	}
-	maximumConnections := environmentInt("MAX_CONNECTIONS", 4096)
-	if maximumConnections < 64 {
-		log.Fatal("MAX_CONNECTIONS must be at least 64")
+	automaticSizing := detectAutomaticSizing()
+	sizing, err := resolveConnectionSizing(os.Getenv("MAX_CONNECTIONS"), automaticSizing)
+	if err != nil {
+		log.Fatal(err)
 	}
-	minimumIdle := environmentDuration("MINIMUM_IDLE_TO_SHED", 30*time.Second)
-	maximumIdle := environmentDuration("MAX_CONNECTION_IDLE", 10*time.Minute)
+	maximumConnections := sizing.MaximumConnections
+	minimumIdle, err := resolveAutomaticDuration(
+		os.Getenv("MINIMUM_IDLE_TO_SHED"),
+		time.Duration(sizing.MinimumIdleSeconds)*time.Second,
+	)
+	if err != nil {
+		log.Fatalf("MINIMUM_IDLE_TO_SHED is invalid: %v", err)
+	}
+	maximumIdle, err := resolveAutomaticDuration(
+		os.Getenv("MAX_CONNECTION_IDLE"),
+		time.Duration(sizing.MaximumIdleSeconds)*time.Second,
+	)
+	if err != nil {
+		log.Fatalf("MAX_CONNECTION_IDLE is invalid: %v", err)
+	}
+	sizing.MinimumIdleSeconds = int(minimumIdle.Seconds())
+	sizing.MaximumIdleSeconds = int(maximumIdle.Seconds())
 	maxLimiterWait := environmentDuration("MAX_LIMITER_WAIT", time.Second)
 	priorityBytes := environmentInt("PRIORITY_BYTES_PER_DIRECTION", 32*1024)
 	priorityReset := environmentDuration("PRIORITY_RESET_AFTER_IDLE", 750*time.Millisecond)
@@ -80,7 +96,7 @@ func main() {
 	metrics := &Metrics{}
 	config := NewConfigStore(secret)
 	gateway := NewGateway(config, metrics, maximumConnections, minimumIdle, maxLimiterWait, priorityBytes, priorityReset)
-	adminAPI := NewAdminAPI(secret, config, metrics, maximumConnections)
+	adminAPI := NewAdminAPI(secret, config, metrics, sizing)
 
 	socksListener, err := net.Listen("tcp", ":1080")
 	if err != nil {
@@ -108,7 +124,15 @@ func main() {
 		errorsChannel <- err
 	}()
 
-	log.Printf("traffic gateway ready with capacity %d and idle timeout %s", maximumConnections, maximumIdle)
+	log.Printf(
+		"traffic gateway ready with %s sizing (%s), %d CPU, %d MiB RAM, capacity %d and idle timeout %s",
+		sizing.Mode,
+		sizing.Profile,
+		sizing.CPUCount,
+		sizing.MemoryMiB,
+		maximumConnections,
+		maximumIdle,
+	)
 	select {
 	case <-stopContext.Done():
 	case err := <-errorsChannel:

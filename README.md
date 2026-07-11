@@ -55,6 +55,7 @@ It is designed for people who want a small personal VPN server without operating
 - Set account expiry, data quota, TCP speed limit and maximum registered devices.
 - Configure DuckDNS domains, XHTTP, REALITY and instance defaults.
 - Monitor Xray CPU, memory, throughput, transfer volume and active connections.
+- Adapt gateway capacity, idle policy and speed presets to detected CPU and RAM.
 - Inspect per-user and per-device usage without recording browsing destinations.
 - Review security audit events and revoke account sessions.
 - Enable TOTP two-factor authentication.

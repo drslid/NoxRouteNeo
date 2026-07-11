@@ -12,7 +12,7 @@ import (
 func TestAdminAPIProtectsConfigurationEndpoint(t *testing.T) {
 	const secret = "01234567890123456789012345678901"
 	store := NewConfigStore(secret)
-	server := httptest.NewServer(NewAdminAPI(secret, store, &Metrics{}, 4096))
+	server := httptest.NewServer(NewAdminAPI(secret, store, &Metrics{}, calculateAutomaticSizing(2, 2048)))
 	defer server.Close()
 
 	payload := []byte(`{"revision":"revision-1","global_limit_mbps":50,"accounts":[{"id":"account-a","limit_mbps":5}]}`)
@@ -51,7 +51,7 @@ func TestHealthDoesNotExposeCredentialsOrAccountIDs(t *testing.T) {
 	if err := store.Apply(RuntimeConfig{Revision: "revision-1", Accounts: []AccountConfig{{ID: "private-account"}}}); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(NewAdminAPI(secret, store, &Metrics{}, 4096))
+	server := httptest.NewServer(NewAdminAPI(secret, store, &Metrics{}, calculateAutomaticSizing(2, 2048)))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/health")

@@ -12,6 +12,8 @@ import {
   formatDuration,
 } from "@/lib/format";
 import { requireAdmin } from "@/lib/session";
+import { getRuntimeSizing } from "@/lib/runtime-health";
+import { speedLimitOptions } from "@/lib/sizing";
 import { intlLocale } from "@/i18n/config";
 import { roleMessageKey, statusMessageKey } from "@/i18n/labels";
 import { getTranslations } from "@/i18n/server";
@@ -41,6 +43,7 @@ export default async function AccountDetailsPage({
   const canResetPassword =
     account.id !== session.user.id &&
     (role === "owner" || account.role === "user");
+  const runtimeSizing = await getRuntimeSizing();
 
   return (
     <div className="space-y-6">
@@ -114,6 +117,10 @@ export default async function AccountDetailsPage({
           <AccountSettingsForm
             userId={account.id}
             isVpnUser={isVpnUser}
+            speedOptions={speedLimitOptions(
+              runtimeSizing?.serverBandwidthMbps ?? 100,
+              [account.speedLimitMbps ?? 0],
+            )}
             initialValues={{
               displayName: account.name,
               status: account.banned ? "suspended" : "active",

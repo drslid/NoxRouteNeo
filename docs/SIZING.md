@@ -96,13 +96,34 @@ documented as a guaranteed limit.
 
 ## Traffic Gateway Capacity
 
-The default technical ceiling is 4096 concurrent TCP flows. This is a safety
-limit, not a sizing promise for 4096 active users. Xray encryption, destination
-sockets, kernel buffers and provider bandwidth usually become limiting first.
-Sockets with no transferred bytes for 10 minutes are closed automatically.
-The admin dashboard reports active flows, rejected admissions, saturation
-shedding and idle timeouts; sustained non-zero rejected admissions indicate
-that the VPS or the configured gateway capacity must be reviewed.
+The gateway recalculates its profile every time its container starts. It uses
+the lower of these two budgets, rounds down to a power of two, and caps the
+automatic result at 16384 flows:
+
+- `2048` concurrent TCP flows per available vCPU;
+- `3` concurrent TCP flows per MiB of detected RAM.
+
+| Profile | Flow ceiling | Automatic bandwidth estimate | Inactive-flow timeout |
+| --- | ---: | ---: | ---: |
+| Compact | 512-1024 | 50 Mbps | 5 minutes |
+| Small | 2048 | 100 Mbps | 7 minutes |
+| Standard | 4096 | 250 Mbps | 10 minutes |
+| Performance | 8192 | 500 Mbps | 15 minutes |
+| High capacity | 16384 | 1000 Mbps | 20 minutes |
+
+The bandwidth value is deliberately conservative and is not a speed test or a
+provider guarantee. The admin can replace it with the advertised VPS bandwidth;
+the VPN guard percentage and user speed menus then use that effective value.
+
+`Active flows` is the current measured count. `Rejected`, `Idle reaped`,
+`Capacity shedding`, `Limiter grace` and `Health probes` are cumulative event
+counters, not configurable limits. Sustained increases in rejection, shedding
+or limiter grace indicate that the VPS or its effective bandwidth should be
+reviewed.
+
+The flow ceiling is a safety limit, not a promise for the same number of active
+users. Xray encryption, destination sockets, kernel buffers and provider
+bandwidth usually become limiting first.
 
 The current implementation was validated with:
 

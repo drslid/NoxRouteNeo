@@ -14,6 +14,7 @@ import {
   calculateThroughputMbps,
   roundTelemetryValue,
 } from "@/lib/telemetry";
+import { getRuntimeSizing } from "@/lib/runtime-health";
 
 export async function getAdminDashboard() {
   const [
@@ -23,6 +24,7 @@ export async function getAdminDashboard() {
     samples,
     [settings],
     [runtime],
+    sizing,
   ] = await Promise.all([
     db
       .select({
@@ -49,6 +51,7 @@ export async function getAdminDashboard() {
       .from(instanceSettings)
       .limit(1),
     db.select().from(runtimeAgentState).limit(1),
+    getRuntimeSizing(),
   ]);
 
   const expectedSampleSeconds = settings?.telemetryIntervalSeconds ?? 30;
@@ -99,6 +102,7 @@ export async function getAdminDashboard() {
       healthProbes: Number(runtime?.trafficGatewayHealthProbes ?? 0n),
       lastSeenAt: runtime?.trafficGatewayLastSeenAt?.toISOString() ?? null,
     },
+    sizing,
     samples: dashboardSamples,
   };
 }

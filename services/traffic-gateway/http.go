@@ -14,11 +14,11 @@ type AdminAPI struct {
 	secret  string
 	config  *ConfigStore
 	metrics *Metrics
-	maximum int
+	sizing  SizingMetadata
 }
 
-func NewAdminAPI(secret string, config *ConfigStore, metrics *Metrics, maximum int) *AdminAPI {
-	return &AdminAPI{secret: secret, config: config, metrics: metrics, maximum: maximum}
+func NewAdminAPI(secret string, config *ConfigStore, metrics *Metrics, sizing SizingMetadata) *AdminAPI {
+	return &AdminAPI{secret: secret, config: config, metrics: metrics, sizing: sizing}
 }
 
 func writeJSON(response http.ResponseWriter, status int, payload any) {
@@ -48,7 +48,8 @@ func (api *AdminAPI) ServeHTTP(response http.ResponseWriter, request *http.Reque
 			"configured":           api.config.Configured(),
 			"configuration":        api.config.Snapshot(),
 			"connections":          api.metrics.activeConnections.Load(),
-			"capacity":             api.maximum,
+			"capacity":             api.sizing.MaximumConnections,
+			"sizing":               api.sizing,
 			"rejected_connections": api.metrics.rejected.Load(),
 			"shed_connections":     api.metrics.shedConnections.Load(),
 			"idle_timeouts":        api.metrics.idleTimeouts.Load(),

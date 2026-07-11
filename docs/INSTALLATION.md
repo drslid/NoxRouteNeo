@@ -56,7 +56,7 @@ sudo env \
   OWNER_USERNAME=owner \
   OWNER_NAME='Primary Owner' \
   OWNER_PASSWORD='replace-with-a-long-random-password' \
-  SERVER_BANDWIDTH_MBIT=100 \
+  SERVER_BANDWIDTH_MBIT=auto \
   ./scripts/install.sh
 ```
 
@@ -80,12 +80,13 @@ The installer:
 8. creates application secrets with mode `0600`;
 9. creates persistent directories under `/opt/noxrouteneo`;
 10. adds build swap on a very small VPS when required;
-11. builds and starts PostgreSQL, Next.js, Caddy, the Runtime Agent and Traffic Gateway;
-12. runs Drizzle migrations;
-13. creates and locks the initial owner bootstrap;
-14. stores the DuckDNS token encrypted;
-15. generates REALITY keys and obtains the Let's Encrypt certificate;
-16. runs a strict local verification covering Docker, DNS, listeners, HTTPS, Xray, PostgreSQL and the Traffic Gateway.
+11. configures automatic CPU/RAM gateway sizing and a conservative bandwidth estimate;
+12. builds and starts PostgreSQL, Next.js, Caddy, the Runtime Agent and Traffic Gateway;
+13. runs Drizzle migrations;
+14. creates and locks the initial owner bootstrap;
+15. stores the DuckDNS token encrypted;
+16. generates REALITY keys and obtains the Let's Encrypt certificate;
+17. runs a strict local verification covering Docker, DNS, listeners, HTTPS, Xray, PostgreSQL and the Traffic Gateway.
 
 The installer is designed to fail before changing runtime configuration when domains, ports or required input are invalid.
 

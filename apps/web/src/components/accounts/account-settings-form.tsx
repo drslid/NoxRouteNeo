@@ -13,16 +13,16 @@ import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
 
-const speedOptions = [0, 2, 5, 10, 20, 50, 100];
-
 export function AccountSettingsForm({
   userId,
   isVpnUser,
   initialValues,
+  speedOptions,
 }: {
   userId: string;
   isVpnUser: boolean;
   initialValues: UpdateAccountInput;
+  speedOptions: number[];
 }) {
   const router = useRouter();
   const { t } = useI18n();

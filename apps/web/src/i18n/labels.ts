@@ -29,6 +29,14 @@ const roleKeys: Record<string, MessageKey> = {
   user: "role.user",
 };
 
+const sizingProfileKeys: Record<string, MessageKey> = {
+  compact: "sizing.compact",
+  small: "sizing.small",
+  standard: "sizing.standard",
+  performance: "sizing.performance",
+  "high-capacity": "sizing.highCapacity",
+};
+
 export function statusMessageKey(value: string | null | undefined): MessageKey {
   return (value && statusKeys[value]) || "common.unknown";
 }
@@ -47,4 +55,10 @@ export function platformMessageKey(
 
 export function roleMessageKey(value: string | null | undefined): MessageKey {
   return (value && roleKeys[value]) || "role.user";
+}
+
+export function sizingProfileMessageKey(
+  value: string | null | undefined,
+): MessageKey {
+  return (value && sizingProfileKeys[value]) || "common.unknown";
 }
