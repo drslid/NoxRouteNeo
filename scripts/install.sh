@@ -88,8 +88,15 @@ need_privileges() {
   fi
 }
 
+validate_available_disk() {
+  local available_kib="$1" minimum_kib
+  minimum_kib=$((4 * 1024 * 1024))
+  [ "${available_kib}" -ge "${minimum_kib}" ] \
+    || die "At least 4 GiB of free disk space is required for the initial build; $((available_kib / 1024)) MiB is available. Resize the VPS disk or free space, then run the same command again."
+}
+
 validate_supported_host() {
-  local architecture available_kib minimum_kib
+  local architecture available_kib
   [ -r /etc/os-release ] || die "/etc/os-release was not found."
   # shellcheck disable=SC1091
   . /etc/os-release
@@ -105,9 +112,7 @@ validate_supported_host() {
   esac
 
   available_kib="$(df -Pk "${SRC_DIR}" | awk 'NR == 2 {print $4}')"
-  minimum_kib=$((7 * 1024 * 1024))
-  [ "${available_kib}" -ge "${minimum_kib}" ] \
-    || die "At least 7 GB of free disk space is required for the initial build."
+  validate_available_disk "${available_kib}"
 }
 
 install_dependencies() {

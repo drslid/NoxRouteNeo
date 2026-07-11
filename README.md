@@ -109,7 +109,7 @@ The Docker socket, PostgreSQL port, Xray API and traffic-gateway control API are
 | Access           | `root` or a user with `sudo`                           |
 | Network          | Public IPv4 address                                    |
 | Memory           | 1 GiB RAM; the installer can add temporary build swap  |
-| Disk             | About 7 GiB when images are built on the VPS           |
+| Disk             | 8 GiB total and 4 GiB free; 12 GiB total recommended   |
 | Public TCP ports | `80`, `443`, `8443`                                    |
 | DNS              | One DuckDNS subdomain and its account token             |
 

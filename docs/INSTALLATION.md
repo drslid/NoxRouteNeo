@@ -8,13 +8,16 @@ Prepare:
 
 - an Ubuntu LTS or Debian VPS with public IPv4;
 - `root` access or a user with `sudo`;
-- at least 1 GiB RAM and about 7 GiB free disk for an on-server build;
+- at least 1 GiB RAM, an 8 GiB disk and 4 GiB free before installation;
 - one DuckDNS subdomain;
 - the DuckDNS account token;
 - TCP ports `80`, `443` and `8443` open in both the provider firewall and the OS firewall.
 
 Port `443` is reserved for Xray. The web portal uses HTTPS on `8443`.
 Both services use the same DuckDNS hostname.
+
+A 12 GiB or larger disk is recommended to leave room for system updates,
+backups and future NoxRouteNeo images after installation.
 
 Creating the VPS, creating the DuckDNS name and opening the provider firewall are the only required manual preparation. A provider-independent installer cannot modify an arbitrary hosting provider's firewall.
 

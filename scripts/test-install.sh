@@ -46,4 +46,18 @@ validate_inputs
 assert_equal "shared.duckdns.org" "${ADMIN_DOMAIN}" "validated shared admin domain"
 assert_equal "shared.duckdns.org" "${VPN_DOMAIN}" "validated shared VPN domain"
 
+if disk_error="$(validate_available_disk 3145728 2>&1)"; then
+  printf 'FAIL: host validation accepted less than 4 GiB free disk\n' >&2
+  exit 1
+fi
+case "${disk_error}" in
+  *"3072 MiB is available"*) ;;
+  *)
+    printf 'FAIL: low-disk error does not report detected free space\n' >&2
+    exit 1
+    ;;
+esac
+
+validate_available_disk 4194304
+
 printf 'Installer tests passed.\n'
