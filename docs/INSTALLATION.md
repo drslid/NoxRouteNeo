@@ -43,7 +43,7 @@ The selected language applies to all admin and user accounts and can later be ch
 
 The installer then asks for the existing DuckDNS subdomain and its token. You may enter either `example` or `example.duckdns.org`. The token is entered without terminal echo. Pressing Enter on the language prompt selects English.
 
-The bootstrap downloads the repository into `/opt/noxrouteneo/source`. If a configured installation already exists, it does not overwrite it and runs the strict diagnostic instead.
+The bootstrap downloads the repository into `/opt/noxrouteneo/source`. If a completed installation already exists, it does not overwrite it and runs the strict diagnostic instead. If the first build stopped before creating containers or initializing PostgreSQL, running the same command updates the checkout, removes only the empty generated state and resumes. The bootstrap stops for manual recovery instead of deleting detected data.
 
 ## Unattended installation
 

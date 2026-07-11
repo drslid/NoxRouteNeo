@@ -5,6 +5,7 @@ REPOSITORY="${NOXROUTE_REPOSITORY:-https://github.com/drslid/NoxRouteNeo.git}"
 REF="${NOXROUTE_REF:-main}"
 APP_ROOT="${NOXROUTE_ROOT:-/opt/noxrouteneo}"
 SOURCE_DIR="${APP_ROOT}/source"
+INSTALL_MARKER="${APP_ROOT}/.install-complete"
 
 log() {
   printf '[noxrouteneo] %s\n' "$*"
@@ -46,20 +47,44 @@ install_bootstrap_dependencies() {
   apt-get install -y ca-certificates curl git
 }
 
+reset_incomplete_installation() {
+  local container_ids
+  container_ids="$(docker ps -aq \
+    --filter 'label=com.docker.compose.project=noxrouteneo' 2>/dev/null || true)"
+  if [ -n "${container_ids}" ]; then
+    die "An incomplete installation still has project containers. Preserve its data and run the documented uninstall procedure before retrying."
+  fi
+  if [ -f "${APP_ROOT}/data/postgres/PG_VERSION" ]; then
+    die "An incomplete installation contains a PostgreSQL database. It will not be removed automatically. Back it up and run the documented uninstall procedure."
+  fi
+
+  log "A previous installation stopped before completion; removing its empty generated state and resuming."
+  rm -f "${SOURCE_DIR}/.env"
+  rm -rf "${APP_ROOT}/data" "${APP_ROOT}/secrets" "${APP_ROOT}/backups"
+}
+
 checkout_source() {
   install -d -m 0755 "${APP_ROOT}"
 
   if [ -f "${SOURCE_DIR}/.env" ]; then
-    log "An existing NoxRouteNeo installation was found; verifying it without overwriting data."
     [ -x "${SOURCE_DIR}/scripts/doctor.sh" ] \
       || die "The existing installation is incomplete: scripts/doctor.sh is missing."
-    exec env NOXROUTE_ROOT="${APP_ROOT}" "${SOURCE_DIR}/scripts/doctor.sh" --strict
+    if [ -f "${INSTALL_MARKER}" ]; then
+      log "An existing NoxRouteNeo installation was found; verifying it without overwriting data."
+      exec env NOXROUTE_ROOT="${APP_ROOT}" "${SOURCE_DIR}/scripts/doctor.sh" --strict
+    fi
+    if env NOXROUTE_ROOT="${APP_ROOT}" "${SOURCE_DIR}/scripts/doctor.sh" --strict; then
+      log "The existing installation is healthy; recording its completion marker."
+      install -m 0600 /dev/null "${INSTALL_MARKER}"
+      exit 0
+    fi
+    reset_incomplete_installation
   fi
 
   if [ -d "${SOURCE_DIR}/.git" ]; then
     log "An unfinished source checkout already exists; reusing it."
     git -C "${SOURCE_DIR}" fetch --depth=1 origin "${REF}"
-    git -C "${SOURCE_DIR}" checkout --detach FETCH_HEAD
+    git -C "${SOURCE_DIR}" checkout --detach --force FETCH_HEAD
     return
   fi
 
@@ -90,4 +115,6 @@ main() {
   run_installer
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

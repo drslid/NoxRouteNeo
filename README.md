@@ -135,6 +135,8 @@ The same domain serves the VPN on `443` and the web portal on `8443`. An optiona
 
 The command installs Git, Docker Engine and Docker Compose, validates the OS, architecture, memory, disk and ports, updates DuckDNS, generates every application secret, configures HTTPS and Xray, creates the initial owner, starts the stack and runs a strict local health report. It also adds the required UFW rules when UFW is already active.
 
+The command is safe to run again. A completed installation is only verified. An interrupted first build is resumed automatically when no project container or initialized PostgreSQL database exists; detected data is never deleted automatically.
+
 ### First sign-in
 
 The final output contains:

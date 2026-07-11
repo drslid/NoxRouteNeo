@@ -2,12 +2,12 @@
 .env
 .env.*
 !.env.example
-secrets/
-runtime/
-data/
-backups/
-logs/
-.internal/
+/secrets/
+/runtime/
+/data/
+/backups/
+/logs/
+/.internal/
 
 # SSH, cloud and provider credentials
 *.pem

@@ -4,6 +4,7 @@ set -euo pipefail
 APP_ROOT="${NOXROUTE_ROOT:-/opt/noxrouteneo}"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${SRC_DIR}/.env"
+INSTALL_MARKER="${APP_ROOT}/.install-complete"
 ADMIN_HTTPS_PORT="${ADMIN_HTTPS_PORT:-8443}"
 APP_LOCALE="${APP_LOCALE:-}"
 DUCKDNS_DOMAIN="${DUCKDNS_DOMAIN:-}"
@@ -375,6 +376,7 @@ bootstrap_owner() {
 }
 
 finish_installation() {
+  local source_revision
   log "Waiting for the Traffic Gateway, Xray, DuckDNS and the HTTPS administration endpoint."
   wait_for_gateway \
     || die "The Traffic Gateway did not become healthy."
@@ -390,6 +392,13 @@ finish_installation() {
 
   log "Running the final local installation verification."
   ${SUDO} env NOXROUTE_ROOT="${APP_ROOT}" "${SRC_DIR}/scripts/doctor.sh" --strict
+
+  source_revision="$(git -C "${SRC_DIR}" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+  {
+    printf 'installed_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'source_revision=%s\n' "${source_revision}"
+  } | ${SUDO} tee "${INSTALL_MARKER}" >/dev/null
+  ${SUDO} chmod 0600 "${INSTALL_MARKER}"
 
   printf '\nNoxRouteNeo installation complete.\n'
   printf 'Admin URL: https://%s:%s\n' "${ADMIN_DOMAIN}" "${ADMIN_HTTPS_PORT}"

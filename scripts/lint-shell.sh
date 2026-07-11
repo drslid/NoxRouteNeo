@@ -14,6 +14,7 @@ docker run --rm \
   scripts/install-prereqs.sh \
   scripts/install.sh \
   scripts/lint-shell.sh \
+  scripts/test-bootstrap.sh \
   scripts/test-install.sh \
   scripts/test-services.sh \
   scripts/uninstall.sh
