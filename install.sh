@@ -59,6 +59,14 @@ reset_incomplete_installation() {
   fi
 
   log "A previous installation stopped before completion; removing its empty generated state and resuming."
+  if [ -e /swapfile.noxrouteneo ]; then
+    swapoff /swapfile.noxrouteneo 2>/dev/null || true
+    sed -i '\#^/swapfile.noxrouteneo #d' /etc/fstab
+    rm -f /swapfile.noxrouteneo
+  fi
+  docker image rm noxrouteneo-web:latest noxrouteneo-runtime:latest \
+    noxrouteneo-traffic-gateway:latest caddy:2-alpine postgres:16-alpine \
+    >/dev/null 2>&1 || true
   rm -f "${SOURCE_DIR}/.env"
   rm -rf "${APP_ROOT}/data" "${APP_ROOT}/secrets" "${APP_ROOT}/backups"
 }
