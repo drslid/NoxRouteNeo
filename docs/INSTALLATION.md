@@ -26,7 +26,7 @@ Creating the VPS, creating the DuckDNS name and opening the provider firewall ar
 Copy and paste this line on a fresh VPS:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y curl ca-certificates git && curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
 ```
 
 The first prompt selects the instance language:

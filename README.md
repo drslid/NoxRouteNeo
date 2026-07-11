@@ -122,7 +122,7 @@ Before running the command, create one DuckDNS subdomain, copy its token, and op
 On a fresh Ubuntu or Debian VPS, copy and paste this single command:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y curl ca-certificates git && curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
 ```
 
 The installer asks only for:
