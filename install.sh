@@ -48,7 +48,7 @@ install_bootstrap_dependencies() {
 }
 
 reset_incomplete_installation() {
-  local container_ids
+  local container_ids image_id image_repository
   container_ids="$(docker ps -aq \
     --filter 'label=com.docker.compose.project=noxrouteneo' 2>/dev/null || true)"
   if [ -n "${container_ids}" ]; then
@@ -64,9 +64,13 @@ reset_incomplete_installation() {
     sed -i '\#^/swapfile.noxrouteneo #d' /etc/fstab
     rm -f /swapfile.noxrouteneo
   fi
-  docker image rm noxrouteneo-web:latest noxrouteneo-runtime:latest \
-    noxrouteneo-traffic-gateway:latest caddy:2-alpine postgres:16-alpine \
-    >/dev/null 2>&1 || true
+  while read -r image_repository image_id; do
+    case "${image_repository}" in
+      noxrouteneo-*|caddy|postgres)
+        docker image rm "${image_id}" >/dev/null 2>&1 || true
+        ;;
+    esac
+  done < <(docker image ls --format '{{.Repository}} {{.ID}}' 2>/dev/null || true)
   docker image prune --force >/dev/null 2>&1 || true
   rm -f "${SOURCE_DIR}/.env"
   rm -rf "${APP_ROOT}/data" "${APP_ROOT}/secrets" "${APP_ROOT}/backups"
