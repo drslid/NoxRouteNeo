@@ -67,6 +67,7 @@ reset_incomplete_installation() {
   docker image rm noxrouteneo-web:latest noxrouteneo-runtime:latest \
     noxrouteneo-traffic-gateway:latest caddy:2-alpine postgres:16-alpine \
     >/dev/null 2>&1 || true
+  docker image prune --force >/dev/null 2>&1 || true
   rm -f "${SOURCE_DIR}/.env"
   rm -rf "${APP_ROOT}/data" "${APP_ROOT}/secrets" "${APP_ROOT}/backups"
 }
