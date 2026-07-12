@@ -29,8 +29,10 @@ export function InstanceSettingsForm({
 }) {
   const router = useRouter();
   const { t } = useI18n();
+  const settingsResolver = zodResolver(updateInstanceSettingsSchema);
   const form = useForm<UpdateInstanceSettingsInput>({
-    resolver: zodResolver(updateInstanceSettingsSchema),
+    resolver: (values, context, options) =>
+      settingsResolver(normalizeSettingsValues(values), context, options),
     defaultValues: initialValues,
   });
 
@@ -318,6 +320,27 @@ function nullableNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function requiredNumber(value: unknown) {
+  return typeof value === "number" ? value : Number(value);
+}
+
+function normalizeSettingsValues(values: UpdateInstanceSettingsInput) {
+  return {
+    ...values,
+    adminHttpsPort: requiredNumber(values.adminHttpsPort),
+    vpnPort: 443 as const,
+    defaultMaxDevices: requiredNumber(values.defaultMaxDevices),
+    defaultMaxDays: nullableNumber(values.defaultMaxDays),
+    defaultMaxGigabytes: nullableNumber(values.defaultMaxGigabytes),
+    defaultSpeedLimitMbps: requiredNumber(values.defaultSpeedLimitMbps),
+    serverBandwidthLimitPercent: requiredNumber(
+      values.serverBandwidthLimitPercent,
+    ),
+    serverBandwidthMbps: nullableNumber(values.serverBandwidthMbps),
+    telemetryIntervalSeconds: requiredNumber(values.telemetryIntervalSeconds),
+  };
 }
 
 function SectionHeading({
