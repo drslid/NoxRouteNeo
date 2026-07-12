@@ -10,12 +10,8 @@ import {
 import { and, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
-import {
-  ApiError,
-  apiErrorResponse,
-  requireApiSession,
-} from "@/lib/api-auth";
-import { generateRealityShortId, generateSpiderX } from "@/lib/vless";
+import { ApiError, apiErrorResponse, requireApiSession } from "@/lib/api-auth";
+import { generateSpiderX } from "@/lib/vless";
 
 async function ownedDevice(userId: string, deviceId: string) {
   const [record] = await db
@@ -51,10 +47,6 @@ export async function PATCH(
           name: input.name,
           platform: input.platform,
           profile: input.connectionProfile,
-          realityShortId:
-            record.device.profile === input.connectionProfile
-              ? record.device.realityShortId
-              : generateRealityShortId(input.connectionProfile),
           spiderX: generateSpiderX(input.connectionProfile),
           updatedAt: new Date(),
         })

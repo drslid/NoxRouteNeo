@@ -5,9 +5,10 @@ import {
   type UpdateInstanceSettingsInput,
 } from "@noxroute/contracts";
 import { Button, Checkbox, Input, Select } from "@noxroute/ui";
-import { LoaderCircle, Save } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Save, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FieldPath, useForm } from "react-hook-form";
+import { useState } from "react";
+import { type FieldPath, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
@@ -31,6 +32,62 @@ export function InstanceSettingsForm({
   const form = useForm<UpdateInstanceSettingsInput>({
     defaultValues: initialValues,
   });
+  const [realityCheck, setRealityCheck] = useState<{
+    latencyMs: number;
+    tlsVersion: string;
+    resolvedIp: string;
+    target: string;
+    serverName: string;
+  } | null>(null);
+  const [checkingReality, setCheckingReality] = useState(false);
+  const [currentRealityTarget, currentRealityServerName] = useWatch({
+    control: form.control,
+    name: ["realityTarget", "realityServerName"],
+  });
+  const realityCheckIsCurrent =
+    realityCheck?.target === currentRealityTarget &&
+    realityCheck.serverName === currentRealityServerName;
+
+  async function testRealityTarget() {
+    setCheckingReality(true);
+    setRealityCheck(null);
+    const target = form.getValues("realityTarget");
+    const serverName = form.getValues("realityServerName");
+    try {
+      const response = await fetch("/api/admin/diagnostics/reality", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target,
+          serverName,
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        latency_ms?: number;
+        tls_version?: string;
+        resolved_ip?: string;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error ?? t("settings.realityCheckFailed"));
+      }
+      setRealityCheck({
+        latencyMs: payload.latency_ms ?? 0,
+        tlsVersion: payload.tls_version ?? "TLS",
+        resolvedIp: payload.resolved_ip ?? "-",
+        target,
+        serverName,
+      });
+      toast.success(t("settings.realityCheckPassed"));
+    } catch (error) {
+      toast.error(t("settings.realityCheckFailed"), {
+        description:
+          error instanceof Error ? error.message : t("settings.serverRejected"),
+      });
+    } finally {
+      setCheckingReality(false);
+    }
+  }
 
   async function submit(rawValues: UpdateInstanceSettingsInput) {
     form.clearErrors();
@@ -211,6 +268,26 @@ export function InstanceSettingsForm({
           >
             <Input dir="ltr" {...form.register("realityServerName")} />
           </Field>
+          <div className="flex items-end">
+            <Button
+              className="w-full sm:w-auto"
+              type="button"
+              variant="outline"
+              onClick={testRealityTarget}
+              disabled={checkingReality || form.formState.isSubmitting}
+            >
+              {checkingReality ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : realityCheckIsCurrent ? (
+                <CheckCircle2 aria-hidden="true" />
+              ) : (
+                <ShieldCheck aria-hidden="true" />
+              )}
+              {checkingReality
+                ? t("settings.realityChecking")
+                : t("settings.realityCheck")}
+            </Button>
+          </div>
           <Field label={t("settings.telemetryInterval")}>
             <Select
               {...form.register("telemetryIntervalSeconds", {
@@ -225,6 +302,15 @@ export function InstanceSettingsForm({
             </Select>
           </Field>
         </div>
+        {realityCheck && realityCheckIsCurrent && (
+          <p className="mt-3 text-xs text-emerald-700" role="status" dir="ltr">
+            {t("settings.realityCheckDetails", {
+              tls: realityCheck.tlsVersion,
+              latency: realityCheck.latencyMs,
+              ip: realityCheck.resolvedIp,
+            })}
+          </p>
+        )}
       </section>
 
       <section className="border-t pt-7">

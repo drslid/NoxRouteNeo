@@ -17,6 +17,7 @@ import {
   LoaderCircle,
   Settings,
   ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,6 +26,7 @@ import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
 import { platformMessageKey, profileMessageKey } from "@/i18n/labels";
+import { buildIncyImportUrl } from "@/lib/incy";
 
 type ConnectionPayload = {
   subscriptionUrl: string;
@@ -70,6 +72,7 @@ export function ConnectionCard({
     },
   });
   const value = query.data?.subscriptionUrl;
+  const incyImportUrl = value ? buildIncyImportUrl(value) : null;
 
   async function copy() {
     if (!value) return;
@@ -177,6 +180,14 @@ export function ConnectionCard({
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {t("connection.subscriptionHelp")}
                 </p>
+                {incyImportUrl && (
+                  <Button asChild className="mt-4">
+                    <a href={incyImportUrl}>
+                      <Smartphone aria-hidden="true" />
+                      {t("connection.openInIncy")}
+                    </a>
+                  </Button>
+                )}
                 <div className="mt-4 flex min-w-0 items-start gap-2 rounded-md border bg-muted/50 p-3">
                   <code
                     className="min-w-0 flex-1 break-all text-xs leading-5"

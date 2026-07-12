@@ -20,11 +20,13 @@ NoxRouteNeo is not affiliated with INCY. Use only the official links below.
 3. Open `Devices`, select `Register device`, name the device and choose `Fast`, `Balanced` or `Stealth`.
 4. In INCY, enable HWID sharing for subscription requests. See the [official HWID guide](https://docs.incy.cc/en/hwid/).
 5. Return to NoxRouteNeo and open `Connection`.
-6. Scan that device's QR code from INCY, or copy and import the subscription URL.
+6. On the same device, select `Import in INCY`. Alternatively, scan the QR code from INCY or copy and import the subscription URL.
 7. Refresh the subscription in INCY. The first valid HWID becomes the owner of that credential.
 8. Select the imported endpoint and start the VPN.
 
 Create one NoxRouteNeo device for each phone, tablet or computer. Do not reuse a QR code between devices.
+
+The one-click action uses INCY's documented `incy://import/https://...` deep link. The subscription URL remains stable, and INCY continues to send its HWID when refreshing it.
 
 INCY Desktop `3.3.1` was first published on July 11, 2026. Windows and Linux support must therefore be validated with the current NoxRouteNeo subscription before it is treated as mature. On Windows, start with the x64 release unless the computer uses Windows on ARM.
 

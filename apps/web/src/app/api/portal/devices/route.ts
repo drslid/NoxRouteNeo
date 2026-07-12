@@ -4,6 +4,7 @@ import {
   db,
   devices,
   encryptedSecrets,
+  instanceSettings,
   runtimeCommands,
   subscriptionCredentials,
   vpnAccesses,
@@ -11,17 +12,13 @@ import {
 import { and, eq, ne, sql as drizzleSql } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
-import {
-  ApiError,
-  apiErrorResponse,
-  requireApiSession,
-} from "@/lib/api-auth";
+import { ApiError, apiErrorResponse, requireApiSession } from "@/lib/api-auth";
 import {
   encryptSecret,
   generateSubscriptionToken,
   secretDigest,
 } from "@/lib/secrets";
-import { generateRealityShortId, generateSpiderX } from "@/lib/vless";
+import { generateInstanceRealityShortId, generateSpiderX } from "@/lib/vless";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,6 +63,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const shortIdCandidate = generateInstanceRealityShortId();
+      await tx.execute(drizzleSql`
+        update ${instanceSettings}
+        set reality_short_id = ${shortIdCandidate}, updated_at = now()
+        where id = 'default' and reality_short_id is null
+      `);
+      const [settings] = await tx
+        .select({ realityShortId: instanceSettings.realityShortId })
+        .from(instanceSettings)
+        .where(eq(instanceSettings.id, "default"))
+        .limit(1);
+      if (!settings?.realityShortId) {
+        throw new ApiError(503, "VPN runtime settings are incomplete");
+      }
+
       const vlessUuid = crypto.randomUUID();
       const subscriptionToken = generateSubscriptionToken();
       const encryptedUuid = encryptSecret(vlessUuid);
@@ -90,7 +102,7 @@ export async function POST(request: NextRequest) {
           platform: input.platform,
           profile: input.connectionProfile,
           vlessSecretId: uuidSecret.id,
-          realityShortId: generateRealityShortId(input.connectionProfile),
+          realityShortId: settings.realityShortId,
           spiderX: generateSpiderX(input.connectionProfile),
         })
         .returning();

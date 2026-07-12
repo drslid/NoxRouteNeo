@@ -6,3 +6,11 @@ export const INCY_LINKS = {
   hwidGuide: "https://docs.incy.cc/en/hwid/",
   subscriptionGuide: "https://docs.incy.cc/en/subscription-format/",
 } as const;
+
+export function buildIncyImportUrl(subscriptionUrl: string) {
+  const parsed = new URL(subscriptionUrl);
+  if (parsed.protocol !== "https:") {
+    throw new Error("INCY subscription imports require HTTPS");
+  }
+  return `incy://import/${subscriptionUrl}`;
+}

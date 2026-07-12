@@ -43,6 +43,13 @@
       "when": 1783845501951,
       "tag": "0005_bored_morph",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783881590140,
+      "tag": "0006_colorful_professor_monster",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { INCY_LINKS } from "./incy";
+import { buildIncyImportUrl, INCY_LINKS } from "./incy";
 
 describe("INCY resources", () => {
   it("only links to the expected official HTTPS hosts", () => {
@@ -17,5 +17,17 @@ describe("INCY resources", () => {
       expect(url.protocol).toBe("https:");
       expect(allowedHosts.has(url.hostname)).toBe(true);
     }
+  });
+
+  it("builds the documented INCY subscription deep link", () => {
+    expect(buildIncyImportUrl("https://vpn.example.test:8443/sub/secret")).toBe(
+      "incy://import/https://vpn.example.test:8443/sub/secret",
+    );
+  });
+
+  it("rejects non-HTTPS subscription imports", () => {
+    expect(() =>
+      buildIncyImportUrl("http://vpn.example.test/sub/secret"),
+    ).toThrow("require HTTPS");
   });
 });

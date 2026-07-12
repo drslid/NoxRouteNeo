@@ -13,8 +13,8 @@ export const connectionProfiles = {
   },
 } as const satisfies Record<ConnectionProfile, { mode: string | undefined }>;
 
-export function generateRealityShortId(profile: ConnectionProfile) {
-  return randomBytes(profile === "fast" ? 4 : 8).toString("hex");
+export function generateInstanceRealityShortId() {
+  return randomBytes(8).toString("hex");
 }
 
 export function generateSpiderX(profile: ConnectionProfile) {

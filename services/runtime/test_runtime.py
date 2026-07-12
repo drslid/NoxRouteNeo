@@ -26,13 +26,21 @@ def runtime_model(gateway_available: bool = True) -> dict[str, object]:
             "xhttp_path": "/noxroute",
             "reality_target": "www.speedtest.net:443",
             "reality_server_name": "www.speedtest.net",
+            "reality_public_key": "public-key-placeholder",
         },
         "private_key": "private-key-placeholder",
+        "instance_short_id": "71749492",
+        "accepted_short_ids": ["71749492"],
         "clients": [
             {
                 "id": "11111111-1111-4111-8111-111111111111",
                 "email": "device-test",
                 "short_id": "71749492",
+                "device_id": "test",
+                "access_id": "account-test",
+                "profile": "balanced",
+                "spider_x": None,
+                "device_name": "Test phone",
             }
         ],
         "accesses": [
@@ -96,6 +104,146 @@ class TrafficGatewayRuntimeTests(unittest.TestCase):
         self.assertEqual(
             enabled["routing"]["balancers"][0]["fallbackTag"], "direct"
         )
+
+    def test_xray_enables_live_handler_and_routing_services(self) -> None:
+        config = runtime.RuntimeAgent.xray_config(runtime_model())
+        self.assertEqual(
+            config["api"]["services"],
+            ["HandlerService", "RoutingService", "StatsService"],
+        )
+        self.assertEqual(
+            config["routing"]["rules"][-1]["ruleTag"],
+            "device-test-gateway",
+        )
+
+    def test_dynamic_clients_do_not_change_static_fingerprint(self) -> None:
+        first = runtime_model()
+        second = runtime_model()
+        second["clients"] = []
+        second["accesses"] = []
+        self.assertEqual(
+            runtime.RuntimeAgent.static_fingerprint(first),
+            runtime.RuntimeAgent.static_fingerprint(second),
+        )
+
+    def test_live_reconcile_adds_a_device_without_stopping_xray(self) -> None:
+        agent = runtime.RuntimeAgent()
+        first = runtime_model()
+        agent.applied_clients = agent.client_snapshot(first)
+        agent.applied_accesses = agent.access_snapshot(first)
+        second = runtime_model()
+        second["clients"] = [
+            *second["clients"],
+            {
+                "id": "22222222-2222-4222-8222-222222222222",
+                "email": "device-second",
+                "short_id": "71749492",
+                "device_id": "second",
+                "access_id": "account-test",
+                "profile": "fast",
+                "spider_x": None,
+                "device_name": "Second phone",
+            },
+        ]
+        with (
+            patch.object(agent, "add_client_live") as add_client,
+            patch.object(agent, "remove_client_live") as remove_client,
+            patch.object(agent, "add_access_live") as add_access,
+            patch.object(agent, "remove_access_live") as remove_access,
+            patch.object(agent, "stop_xray") as stop_xray,
+        ):
+            self.assertTrue(agent.reconcile_live_config(second))
+        add_client.assert_called_once()
+        remove_client.assert_not_called()
+        add_access.assert_not_called()
+        remove_access.assert_not_called()
+        stop_xray.assert_not_called()
+
+    def test_reality_target_requires_public_tls_on_port_443(self) -> None:
+        with self.assertRaisesRegex(ValueError, "port 443"):
+            runtime.RuntimeAgent.validate_reality_target(
+                "www.speedtest.net:8443",
+                "www.speedtest.net",
+            )
+
+    def test_reality_target_rejects_private_dns_answers(self) -> None:
+        answer = [
+            (
+                runtime.socket.AF_INET,
+                runtime.socket.SOCK_STREAM,
+                runtime.socket.IPPROTO_TCP,
+                "",
+                ("127.0.0.1", 443),
+            )
+        ]
+        with (
+            patch.object(runtime.socket, "getaddrinfo", return_value=answer),
+            self.assertRaisesRegex(ValueError, "non-public"),
+        ):
+            runtime.RuntimeAgent.public_addresses("example.test", 443)
+
+    def test_diagnostic_client_uses_xhttp_and_reality(self) -> None:
+        model = runtime_model()
+        config = runtime.RuntimeAgent.diagnostic_client_config(
+            model,
+            model["clients"][0],
+            "127.0.0.1",
+            10443,
+            19080,
+        )
+        stream = config["outbounds"][0]["streamSettings"]
+        self.assertEqual(stream["network"], "xhttp")
+        self.assertEqual(stream["security"], "reality")
+        self.assertEqual(stream["realitySettings"]["password"], "public-key-placeholder")
+
+    def test_xray_accepts_live_access_and_user_updates(self) -> None:
+        agent = runtime.RuntimeAgent()
+        model = runtime_model()
+        private_key, public_key = agent.generate_reality_keypair()
+        model["private_key"] = private_key
+        model["settings"]["reality_public_key"] = public_key
+        listen_port = agent.available_loopback_port()
+        api_port = agent.available_loopback_port()
+        second_access = {
+            "id": "account-second",
+            "speed_limit_mbps": 10,
+            "gateway_enabled": True,
+            "users": [],
+        }
+        second_client = {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "email": "device-live-test",
+            "short_id": "71749492",
+            "device_id": "live-test",
+            "access_id": "account-second",
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = runtime.Path(directory) / "server.json"
+            with (
+                patch.object(runtime, "XRAY_CONFIG_PATH", config_path),
+                patch.object(runtime, "XRAY_LISTEN_PORT", listen_port),
+                patch.object(runtime, "XRAY_API_PORT", api_port),
+            ):
+                agent.write_and_validate_config(model)
+                agent.start_xray()
+                try:
+                    agent.add_access_live(second_access)
+                    agent.add_client_live(second_client)
+                    output = agent.run_xray_api(
+                        "inbounduser",
+                        arguments=[
+                            "-tag",
+                            runtime.XRAY_INBOUND_TAG,
+                            "-email",
+                            second_client["email"],
+                        ],
+                    )
+                    self.assertIn(second_client["email"], output)
+                    agent.remove_client_live(second_client)
+                    agent.remove_access_live(second_access["id"])
+                finally:
+                    agent.stop_xray()
 
     def test_gateway_health_does_not_change_xray_fingerprint(self) -> None:
         self.assertEqual(

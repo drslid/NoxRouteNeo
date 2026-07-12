@@ -38,12 +38,17 @@ Its credible position is narrower: a guided, single-VPS appliance with separate 
 
 1. Publish signed, multi-architecture GHCR images so installation does not compile Next.js on the VPS.
 2. Add tested one-click marketplace images while preserving the provider-independent installer.
-3. Apply routine Xray user changes through its API where safe, avoiding a process restart for every device update.
-4. Validate INCY Desktop end to end and design a revocable generic desktop mode for v2rayN/Throne without pretending it provides hardware attestation.
-5. Add automated backup, restore and upgrade rollback checks before calling the project stable.
-6. Publish reproducible throughput, flow and memory benchmarks for each recommended VPS class.
-7. Add release signing, an SBOM, image scanning and documented dependency/update policy.
-8. Keep multi-node orchestration out of the default product; reconsider it only as an optional future edition.
+3. Validate INCY Desktop end to end and design a revocable generic desktop mode for v2rayN/Throne without pretending it provides hardware attestation.
+4. Add automated backup, restore and upgrade rollback checks before calling the project stable.
+5. Publish reproducible throughput, flow and memory benchmarks for each recommended VPS class.
+6. Add release signing, an SBOM, image scanning and documented dependency/update policy.
+7. Keep multi-node orchestration out of the default product; reconsider it only as an optional future edition.
+
+## Implemented lessons
+
+- Routine account and device credential changes use Xray `HandlerService` and `RoutingService`; a validated full restart remains the recovery path if an API operation fails.
+- The admin can validate a REALITY target before saving it and run a real temporary-client XHTTP tunnel test without exposing a device UUID.
+- INCY subscriptions can be handed to the official client through its documented one-click deep link while QR and copy/paste remain available.
 
 ## Selection guide
 

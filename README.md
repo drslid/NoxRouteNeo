@@ -52,6 +52,12 @@ NoxRouteNeo is a Docker-based, self-hosted VPN management platform for a single 
 
 It is designed for people who want a small personal VPN server without operating a multi-node control plane. The VPS hosts the web portal, API, database, certificates, traffic gateway and VPN runtime.
 
+<p align="center">
+  <img src="docs/assets/protected-route.png" alt="A phone and laptop create an encrypted connection through a restricted network to the user's NoxRouteNeo VPS, then reach the Internet using the VPS IP" width="1200">
+</p>
+
+<p align="center"><sub>Your device creates an encrypted connection to your own VPS. Websites see the VPS IP; XHTTP + REALITY is designed to resemble common HTTPS patterns. This improves privacy and censorship resistance but does not guarantee anonymity or access on every network.</sub></p>
+
 ## Features
 
 ### Administration
@@ -59,6 +65,7 @@ It is designed for people who want a small personal VPN server without operating
 - Create owner-managed administrator accounts and VPN user accounts.
 - Set account expiry, data quota, TCP speed limit and maximum registered devices.
 - Configure DuckDNS domains, XHTTP, REALITY and instance defaults.
+- Validate the REALITY target and run an actual XHTTP tunnel diagnostic from the admin interface.
 - Monitor Xray CPU, memory, throughput, transfer volume and active connections.
 - Adapt gateway capacity, idle policy and speed presets to detected CPU and RAM.
 - Inspect per-user and per-device usage without recording browsing destinations.
@@ -71,7 +78,7 @@ It is designed for people who want a small personal VPN server without operating
 
 - View data usage, quota, connection time, expiry and active connections.
 - Register a separate credential for each phone, tablet or desktop.
-- Import a stable, device-bound subscription URL by QR code or copy/paste.
+- Import a stable, device-bound subscription in INCY with one click, QR code or copy/paste.
 - Bind an INCY subscription to the first phone HWID that refreshes it.
 - Select `Fast`, `Balanced` or `Stealth` for each registered device.
 - Revoke devices and manage password, sessions and TOTP.
@@ -81,6 +88,7 @@ It is designed for people who want a small personal VPN server without operating
 - One Docker Compose stack for PostgreSQL, Next.js, Caddy, Xray and the traffic gateway.
 - Interactive installer for Ubuntu and Debian on `amd64` and `arm64`.
 - DuckDNS updates and Let's Encrypt certificate issuance during installation.
+- Apply routine account and device credentials through Xray's local API without interrupting existing tunnels.
 - English, Spanish, French, German, Simplified Chinese, Arabic, Russian, Portuguese, Hindi and Urdu.
 - Right-to-left layout support for Arabic and Urdu.
 
@@ -233,7 +241,7 @@ NoxRouteNeo is not affiliated with INCY. A complete walkthrough is available in 
 </p>
 
 4. In INCY, the user enables HWID sharing for subscription requests.
-5. The user opens `Connection`, scans the QR code with INCY or copies the subscription URL into INCY.
+5. The user opens `Connection` and selects `Import in INCY`; QR scanning and copy/paste remain available as fallbacks.
 6. INCY refreshes the subscription, binds that credential to the phone HWID and can measure the endpoint latency.
 7. The user starts the VPN. To move the credential to another phone, the old device must be revoked and recreated in NoxRouteNeo.
 
@@ -249,11 +257,11 @@ The subscription response sends INCY `sort-order: ping`, which asks the applicat
 
 Every profile keeps the same VPN standard: `VLESS + XHTTP + REALITY`.
 
-| Profile    | XHTTP behavior                                      | Intended use                                    |
-| ---------- | --------------------------------------------------- | ----------------------------------------------- |
-| `Fast`     | `stream-one`, lowest overhead                       | Stable networks and lower latency               |
-| `Balanced` | Default XHTTP behavior, device-specific short ID    | Recommended default                             |
-| `Stealth`  | `packet-up`, device-specific short ID and `spiderX` | More request variation with additional overhead |
+| Profile    | XHTTP behavior                       | Intended use                                    |
+| ---------- | ------------------------------------ | ----------------------------------------------- |
+| `Fast`     | `stream-one`, lowest overhead        | Stable networks and lower latency               |
+| `Balanced` | Default XHTTP behavior               | Recommended default                             |
+| `Stealth`  | `packet-up` and device-specific path | More request variation with additional overhead |
 
 These profiles adjust transport behavior and compatibility. They do not provide a measurable anonymity or non-detection guarantee.
 
@@ -265,7 +273,7 @@ NoxRouteNeo always generates `VLESS + XHTTP + REALITY` credentials:
 - **REALITY target** is a stable public TLS endpoint, including port `443`, whose handshake REALITY imitates for unauthenticated traffic. It must be reachable from the VPS.
 - **REALITY server name** is the hostname sent as TLS SNI. It must be accepted by the configured target and is normally the target hostname without `https://` or a port.
 
-The defaults use `www.speedtest.net:443` and `www.speedtest.net`. These values do not route VPN traffic through Speedtest; normal authenticated traffic exits directly through the VPS.
+The admin interface verifies DNS, public addressing, TCP `443`, the TLS certificate, SNI and latency before saving a target. Its VPN diagnostic then starts a temporary local Xray client and makes a real HTTPS request through the configured `VLESS + XHTTP + REALITY` tunnel. The defaults use `www.speedtest.net:443` and `www.speedtest.net`; these values do not route VPN traffic through Speedtest, and authenticated traffic exits through the VPS.
 
 ## VPS capacity planning
 
@@ -309,6 +317,7 @@ The instance language is selected during installation and can later be changed i
 - Active bans are enforced before Docker port forwarding by a dedicated nftables agent, without restarting Xray.
 - Security events are retained for seven days; administrative audit logs are retained for 30 days.
 - Database and internal control APIs stay on private networks or loopback.
+- Runtime diagnostic requests use a purpose-specific HMAC token derived locally from the application encryption key.
 - Containers run with dropped capabilities, read-only filesystems where possible and `no-new-privileges`.
 - The application does not store browsing history, requested domains or destination URLs.
 

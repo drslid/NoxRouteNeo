@@ -4,17 +4,22 @@ import base64
 import hashlib
 import hmac
 import http.server
+import ipaddress
 import json
 import logging
 import os
 import re
 import signal
+import socket
+import ssl
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -70,7 +75,9 @@ SECURITY_POLICY_PATH = Path(
 SECURITY_STATUS_PATH = Path(
     os.environ.get("SECURITY_STATUS_PATH", "/security/status.json")
 )
-RUNTIME_VERSION = "1.4.0"
+RUNTIME_VERSION = "1.5.0"
+XRAY_INBOUND_TAG = "noxroute-vless-xhttp-reality"
+RUNTIME_CONTROL_CONTEXT = b"noxrouteneo:runtime-control:v1"
 
 _encoded_key = os.environ.get("APP_ENCRYPTION_KEY", "")
 try:
@@ -254,6 +261,15 @@ def traffic_gateway_credential(access_id: str) -> str:
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
 
 
+def runtime_control_token() -> str:
+    digest = hmac.new(
+        ENCRYPTION_KEY,
+        RUNTIME_CONTROL_CONTEXT,
+        hashlib.sha256,
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
 class TrafficGatewayClient:
     def __init__(self) -> None:
         self.last_config_fingerprint = ""
@@ -361,8 +377,15 @@ class RuntimeAgent:
         self.xray_process: psutil.Process | None = None
         self.traffic_gateway = TrafficGatewayClient()
         self.config_fingerprint = ""
+        self.static_config_fingerprint = ""
+        self.caddy_config_fingerprint = ""
+        self.applied_clients: dict[str, dict[str, Any]] = {}
+        self.applied_accesses: set[str] = set()
         self.config_revision = 0
         self.reality_private_key = ""
+        self.current_model: dict[str, Any] | None = None
+        self.model_lock = threading.Lock()
+        self.diagnostic_lock = threading.Lock()
         self.last_telemetry = 0.0
         self.last_duckdns = 0.0
         self.last_caddy_reload = 0.0
@@ -607,6 +630,35 @@ class RuntimeAgent:
             self.reality_private_key = private_key
             return self.reality_private_key
 
+    @staticmethod
+    def ensure_reality_short_id() -> str:
+        with db_connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "select reality_short_id from instance_settings where id = 'default'"
+            )
+            existing = cursor.fetchone()
+            if existing and existing["reality_short_id"]:
+                return str(existing["reality_short_id"])
+            candidate = os.urandom(8).hex()
+            cursor.execute(
+                """
+                update instance_settings
+                set reality_short_id = %s, updated_at = now()
+                where id = 'default' and reality_short_id is null
+                returning reality_short_id
+                """,
+                (candidate,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                cursor.execute(
+                    "select reality_short_id from instance_settings where id = 'default'"
+                )
+                row = cursor.fetchone()
+        if not row or not row["reality_short_id"]:
+            raise RuntimeError("Instance REALITY short ID could not be initialized")
+        return str(row["reality_short_id"])
+
     def enforce_limits(self) -> bool:
         with db_connection() as connection, connection.cursor() as cursor:
             cursor.execute("select enforce_quota, enforce_expiry from instance_settings limit 1")
@@ -639,11 +691,20 @@ class RuntimeAgent:
 
     def load_model(self) -> dict[str, Any]:
         private_key = self.ensure_reality_key()
+        instance_short_id = self.ensure_reality_short_id()
         with db_connection() as connection, connection.cursor() as cursor:
             cursor.execute("select * from instance_settings where id = 'default'")
             settings = cursor.fetchone()
             if not settings:
                 raise RuntimeError("Instance settings are missing")
+            cursor.execute(
+                """
+                select v.id as access_id, v.speed_limit_mbps
+                from vpn_accesses v
+                order by v.id
+                """
+            )
+            access_rows = cursor.fetchall()
             cursor.execute(
                 """
                 select
@@ -663,6 +724,17 @@ class RuntimeAgent:
             rows = cursor.fetchall()
             cursor.execute(
                 """
+                select distinct reality_short_id
+                from devices
+                where reality_short_id is not null
+                order by reality_short_id
+                """
+            )
+            accepted_short_ids = {
+                str(row["reality_short_id"]) for row in cursor.fetchall()
+            }
+            cursor.execute(
+                """
                 select ip_address
                 from ip_bans
                 where released_at is null
@@ -674,7 +746,15 @@ class RuntimeAgent:
 
         now = datetime.now(timezone.utc)
         clients: list[dict[str, Any]] = []
-        grouped: dict[str, dict[str, Any]] = {}
+        grouped: dict[str, dict[str, Any]] = {
+            str(row["access_id"]): {
+                "id": str(row["access_id"]),
+                "speed_limit_mbps": int(row["speed_limit_mbps"] or 0),
+                "users": [],
+                "gateway_enabled": True,
+            }
+            for row in access_rows
+        }
         for row in rows:
             eligible = (
                 not row["banned"]
@@ -694,17 +774,14 @@ class RuntimeAgent:
                 "device_id": str(row["device_id"]),
                 "access_id": str(row["access_id"]),
                 "short_id": row["reality_short_id"],
+                "profile": str(row["profile"]),
+                "spider_x": row["spider_x"],
+                "device_name": str(row["device_name"]),
             }
             clients.append(client)
             access_id = str(row["access_id"])
-            grouped.setdefault(
-                access_id,
-                {
-                    "id": access_id,
-                    "speed_limit_mbps": int(row["speed_limit_mbps"] or 0),
-                    "users": [],
-                },
-            )["users"].append(client["email"])
+            if access_id in grouped:
+                grouped[access_id]["users"].append(client["email"])
 
         server_bandwidth_mbps, bandwidth_mode = effective_server_bandwidth(
             dict(settings)
@@ -713,16 +790,14 @@ class RuntimeAgent:
         global_limit = calculate_global_bandwidth_limit(
             server_bandwidth_mbps, bandwidth_percent
         )
-        accesses = []
-        for access in grouped.values():
-            access["gateway_enabled"] = (
-                access["speed_limit_mbps"] > 0 or global_limit > 0
-            )
-            accesses.append(access)
+        accesses = list(grouped.values())
+        accepted_short_ids.add(instance_short_id)
 
         return {
             "settings": dict(settings),
             "private_key": private_key,
+            "instance_short_id": instance_short_id,
+            "accepted_short_ids": sorted(accepted_short_ids),
             "clients": clients,
             "accesses": accesses,
             "global_limit_mbps": global_limit,
@@ -745,18 +820,92 @@ class RuntimeAgent:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @staticmethod
+    def access_outbound(access: dict[str, Any]) -> dict[str, Any]:
+        access_id = str(access["id"])
+        return {
+            "protocol": "socks",
+            "tag": f"limit-{access_id}",
+            "settings": {
+                "address": TRAFFIC_GATEWAY_SOCKS_HOST,
+                "port": TRAFFIC_GATEWAY_SOCKS_PORT,
+                "user": access_id,
+                "pass": traffic_gateway_credential(access_id),
+            },
+        }
+
+    @staticmethod
+    def access_balancer(access: dict[str, Any]) -> dict[str, Any]:
+        access_id = str(access["id"])
+        return {
+            "tag": f"balance-{access_id}",
+            "selector": [f"limit-{access_id}"],
+            "fallbackTag": "direct",
+            "strategy": {"type": "leastPing"},
+        }
+
+    @staticmethod
+    def client_rule(client: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "type": "field",
+            "ruleTag": f"device-{client['device_id']}-gateway",
+            "user": [client["email"]],
+            "balancerTag": f"balance-{client['access_id']}",
+        }
+
+    @staticmethod
+    def client_snapshot(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        return {
+            str(client["email"]): {
+                "id": str(client["id"]),
+                "email": str(client["email"]),
+                "device_id": str(client["device_id"]),
+                "access_id": str(client["access_id"]),
+            }
+            for client in model["clients"]
+        }
+
+    @staticmethod
+    def access_snapshot(model: dict[str, Any]) -> set[str]:
+        return {str(access["id"]) for access in model["accesses"]}
+
+    @classmethod
+    def static_fingerprint(cls, model: dict[str, Any]) -> str:
+        static_model = {
+            **model,
+            "clients": [],
+            "accesses": [],
+        }
+        payload = json.dumps(
+            cls.xray_config(static_model),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    @staticmethod
     def xray_config(model: dict[str, Any]) -> dict[str, Any]:
         settings = model["settings"]
         clients = [
             {"id": item["id"], "email": item["email"], "level": 0}
             for item in model["clients"]
         ]
-        short_ids = sorted({item["short_id"] for item in model["clients"]}) or [""]
+        short_ids = list(
+            dict.fromkeys(
+                str(value)
+                for value in model.get("accepted_short_ids", [])
+                if value is not None
+            )
+        ) or [str(model.get("instance_short_id") or "")]
         outbounds: list[dict[str, Any]] = [
             {"protocol": "freedom", "tag": "direct"},
             {"protocol": "blackhole", "tag": "block"},
         ]
-        balancers: list[dict[str, Any]] = []
+        balancers = [
+            RuntimeAgent.access_balancer(access) for access in model["accesses"]
+        ]
+        outbounds.extend(
+            RuntimeAgent.access_outbound(access) for access in model["accesses"]
+        )
         routing_rules: list[dict[str, Any]] = [
             {
                 "type": "field",
@@ -776,38 +925,9 @@ class RuntimeAgent:
             {"type": "field", "protocol": ["bittorrent"], "outboundTag": "block"},
             {"type": "field", "network": "udp", "outboundTag": "direct"},
         ]
-        for access in model["accesses"]:
-            if not access["gateway_enabled"]:
-                continue
-            tag = f"limit-{access['id']}"
-            balancer_tag = f"balance-{access['id']}"
-            outbounds.append(
-                {
-                    "protocol": "socks",
-                    "tag": tag,
-                    "settings": {
-                        "address": TRAFFIC_GATEWAY_SOCKS_HOST,
-                        "port": TRAFFIC_GATEWAY_SOCKS_PORT,
-                        "user": access["id"],
-                        "pass": traffic_gateway_credential(access["id"]),
-                    },
-                }
-            )
-            balancers.append(
-                {
-                    "tag": balancer_tag,
-                    "selector": [tag],
-                    "fallbackTag": "direct",
-                    "strategy": {"type": "leastPing"},
-                }
-            )
-            routing_rules.append(
-                {
-                    "type": "field",
-                    "user": access["users"],
-                    "balancerTag": balancer_tag,
-                }
-            )
+        routing_rules.extend(
+            RuntimeAgent.client_rule(client) for client in model["clients"]
+        )
 
         config: dict[str, Any] = {
             "log": {
@@ -818,7 +938,7 @@ class RuntimeAgent:
             "api": {
                 "tag": "api",
                 "listen": f"127.0.0.1:{XRAY_API_PORT}",
-                "services": ["StatsService"],
+                "services": ["HandlerService", "RoutingService", "StatsService"],
             },
             "stats": {},
             "policy": {
@@ -843,7 +963,7 @@ class RuntimeAgent:
             },
             "inbounds": [
                 {
-                    "tag": "noxroute-vless-xhttp-reality",
+                    "tag": XRAY_INBOUND_TAG,
                     "listen": "0.0.0.0",
                     "port": XRAY_LISTEN_PORT,
                     "protocol": "vless",
@@ -868,14 +988,13 @@ class RuntimeAgent:
                 "balancers": balancers,
                 "rules": routing_rules,
             },
-        }
-        if balancers:
-            config["observatory"] = {
+            "observatory": {
                 "subjectSelector": ["limit-"],
                 "probeURL": "http://198.18.0.254/generate_204",
                 "probeInterval": "2s",
                 "enableConcurrency": True,
-            }
+            },
+        }
         return config
 
     @staticmethod
@@ -962,19 +1081,194 @@ class RuntimeAgent:
         if self.xray.poll() is not None:
             raise RuntimeError(f"Xray exited with status {self.xray.returncode}")
 
+    @staticmethod
+    def run_xray_api(
+        action: str,
+        arguments: list[str] | None = None,
+        config: dict[str, Any] | None = None,
+        expected: str | None = None,
+    ) -> str:
+        with tempfile.TemporaryDirectory(prefix="noxroute-api-") as directory:
+            command = [
+                XRAY_BINARY,
+                "api",
+                action,
+                f"--server=127.0.0.1:{XRAY_API_PORT}",
+            ]
+            command.extend(arguments or [])
+            if config is not None:
+                config_path = Path(directory) / "operation.json"
+                config_path.write_text(json.dumps(config), encoding="utf-8")
+                command.append(str(config_path))
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        output = f"{result.stdout}\n{result.stderr}".strip()
+        if result.returncode != 0 or (expected and expected not in output):
+            detail = output or f"exit status {result.returncode}"
+            raise RuntimeError(f"Xray API {action} failed: {detail}")
+        return output
+
+    def add_access_live(self, access: dict[str, Any]) -> None:
+        self.run_xray_api(
+            "ado",
+            config={"outbounds": [self.access_outbound(access)]},
+        )
+        self.run_xray_api(
+            "adrules",
+            arguments=["-append"],
+            config={
+                "routing": {
+                    "balancers": [self.access_balancer(access)],
+                    "rules": [],
+                }
+            },
+        )
+
+    def remove_access_live(self, access_id: str) -> None:
+        self.run_xray_api("rmo", arguments=[f"limit-{access_id}"])
+
+    def add_client_live(self, client: dict[str, Any]) -> None:
+        self.run_xray_api(
+            "adrules",
+            arguments=["-append"],
+            config={"routing": {"rules": [self.client_rule(client)]}},
+        )
+        self.add_inbound_user_live(client)
+
+    def add_inbound_user_live(self, client: dict[str, Any]) -> None:
+        self.run_xray_api(
+            "adu",
+            config={
+                "inbounds": [
+                    {
+                        "tag": XRAY_INBOUND_TAG,
+                        "port": XRAY_LISTEN_PORT,
+                        "protocol": "vless",
+                        "settings": {
+                            "clients": [
+                                {
+                                    "id": client["id"],
+                                    "email": client["email"],
+                                    "level": 0,
+                                }
+                            ],
+                            "decryption": "none",
+                        },
+                    }
+                ]
+            },
+            expected="Added 1 user(s) in total.",
+        )
+
+    def remove_client_live(self, client: dict[str, Any]) -> None:
+        self.remove_inbound_user_live(client)
+        self.run_xray_api(
+            "rmrules",
+            arguments=[f"device-{client['device_id']}-gateway"],
+        )
+
+    def remove_inbound_user_live(self, client: dict[str, Any]) -> None:
+        self.run_xray_api(
+            "rmu",
+            arguments=["-tag", XRAY_INBOUND_TAG, str(client["email"])],
+            expected="Removed 1 user(s) in total.",
+        )
+
+    def reconcile_live_config(self, model: dict[str, Any]) -> bool:
+        next_clients = self.client_snapshot(model)
+        next_accesses = self.access_snapshot(model)
+        removed_client_emails = sorted(self.applied_clients.keys() - next_clients.keys())
+        changed_client_emails = sorted(
+            email
+            for email in self.applied_clients.keys() & next_clients.keys()
+            if self.applied_clients[email] != next_clients[email]
+        )
+        added_client_emails = sorted(next_clients.keys() - self.applied_clients.keys())
+        removed_accesses = sorted(self.applied_accesses - next_accesses)
+        added_accesses = sorted(next_accesses - self.applied_accesses)
+
+        for email in removed_client_emails + changed_client_emails:
+            self.remove_client_live(self.applied_clients[email])
+
+        accesses_by_id = {
+            str(access["id"]): access for access in model["accesses"]
+        }
+        for access_id in added_accesses:
+            self.add_access_live(accesses_by_id[access_id])
+
+        for email in added_client_emails + changed_client_emails:
+            self.add_client_live(next_clients[email])
+
+        for access_id in removed_accesses:
+            self.remove_access_live(access_id)
+
+        changed = bool(
+            removed_client_emails
+            or changed_client_emails
+            or added_client_emails
+            or removed_accesses
+            or added_accesses
+        )
+        self.applied_clients = next_clients
+        self.applied_accesses = next_accesses
+        return changed
+
     def sync_runtime(self, model: dict[str, Any]) -> None:
         self.write_and_validate_config(model)
         self.stop_xray()
         self.start_xray()
         self.config_fingerprint = self.fingerprint(model)
+        self.static_config_fingerprint = self.static_fingerprint(model)
+        self.applied_clients = self.client_snapshot(model)
+        self.applied_accesses = self.access_snapshot(model)
         self.config_revision += 1
         self.reload_caddy(model["settings"])
+        self.caddy_config_fingerprint = hashlib.sha256(
+            self.caddyfile(model["settings"]).encode("utf-8")
+        ).hexdigest()
         self.update_state("ready", synced=True)
         LOGGER.info(
             "Applied runtime revision %s with %s device credentials",
             self.config_revision,
             len(model["clients"]),
         )
+
+    def reconcile_runtime(self, model: dict[str, Any]) -> None:
+        if self.static_fingerprint(model) != self.static_config_fingerprint:
+            self.sync_runtime(model)
+            return
+
+        self.write_and_validate_config(model)
+        try:
+            changed = self.reconcile_live_config(model)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+            LOGGER.warning(
+                "Live Xray reconciliation failed; applying validated config with a restart: %s",
+                error,
+            )
+            self.sync_runtime(model)
+            return
+
+        caddy_config = self.caddyfile(model["settings"])
+        caddy_fingerprint = hashlib.sha256(caddy_config.encode("utf-8")).hexdigest()
+        caddy_changed = caddy_fingerprint != self.caddy_config_fingerprint
+        if caddy_changed:
+            self.reload_caddy(model["settings"])
+            self.caddy_config_fingerprint = caddy_fingerprint
+
+        self.config_fingerprint = self.fingerprint(model)
+        if changed or caddy_changed:
+            self.config_revision += 1
+            self.update_state("ready", synced=True)
+            LOGGER.info(
+                "Applied runtime revision %s without restarting Xray (%s credentials)",
+                self.config_revision,
+                len(model["clients"]),
+            )
 
     def claim_commands(self) -> list[ClaimedCommand]:
         with db_connection() as connection, connection.cursor() as cursor:
@@ -1284,6 +1578,369 @@ class RuntimeAgent:
                 raise RuntimeError("DuckDNS update was rejected")
 
     @staticmethod
+    def parse_endpoint(value: str, *, require_port_443: bool = False) -> tuple[str, int]:
+        raw_value = value.strip()
+        if not raw_value or "://" in raw_value:
+            raise ValueError("Endpoint must use the host:port format")
+        try:
+            parsed = urllib.parse.urlsplit(f"//{raw_value}")
+            host = parsed.hostname
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Endpoint contains an invalid port") from error
+        if (
+            not host
+            or port is None
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Endpoint must contain only a host and port")
+        if require_port_443 and port != 443:
+            raise ValueError("REALITY target must use TCP port 443")
+        return host.rstrip("."), port
+
+    @staticmethod
+    def public_addresses(host: str, port: int) -> list[tuple[int, tuple[Any, ...], str]]:
+        try:
+            records = socket.getaddrinfo(
+                host,
+                port,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+            )
+        except socket.gaierror as error:
+            raise ValueError(f"DNS resolution failed for {host}") from error
+        addresses: list[tuple[int, tuple[Any, ...], str]] = []
+        seen: set[str] = set()
+        for family, _socket_type, _protocol, _canonical_name, socket_address in records:
+            address = str(socket_address[0]).split("%", maxsplit=1)[0]
+            try:
+                parsed_address = ipaddress.ip_address(address)
+            except ValueError as error:
+                raise ValueError("DNS returned an invalid IP address") from error
+            if not parsed_address.is_global:
+                raise ValueError("Endpoint resolves to a non-public IP address")
+            if address not in seen:
+                seen.add(address)
+                addresses.append((family, socket_address, address))
+        if not addresses:
+            raise ValueError("Endpoint did not resolve to a public IP address")
+        return addresses
+
+    @classmethod
+    def validate_reality_target(
+        cls,
+        target: str,
+        server_name: str,
+    ) -> dict[str, Any]:
+        host, port = cls.parse_endpoint(target, require_port_443=True)
+        normalized_server_name = server_name.strip().rstrip(".")
+        if not re.fullmatch(
+            r"(?=.{3,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}",
+            normalized_server_name,
+        ):
+            raise ValueError("REALITY server name must be a valid public hostname")
+
+        context = ssl.create_default_context()
+        context.set_alpn_protocols(["h2", "http/1.1"])
+        last_error: OSError | ssl.SSLError | None = None
+        for family, socket_address, address in cls.public_addresses(host, port):
+            connection = socket.socket(family, socket.SOCK_STREAM)
+            connection.settimeout(6)
+            started_at = time.monotonic()
+            try:
+                connection.connect(socket_address)
+                with context.wrap_socket(
+                    connection,
+                    server_hostname=normalized_server_name,
+                ) as tls_connection:
+                    certificate = tls_connection.getpeercert()
+                    expires_at = certificate.get("notAfter")
+                    return {
+                        "ok": True,
+                        "target": f"{host}:{port}",
+                        "server_name": normalized_server_name,
+                        "resolved_ip": address,
+                        "latency_ms": round((time.monotonic() - started_at) * 1000),
+                        "tls_version": tls_connection.version() or "unknown",
+                        "alpn": tls_connection.selected_alpn_protocol(),
+                        "certificate_expires_at": (
+                            datetime.fromtimestamp(
+                                ssl.cert_time_to_seconds(expires_at),
+                                tz=timezone.utc,
+                            ).isoformat()
+                            if expires_at
+                            else None
+                        ),
+                    }
+            except (OSError, ssl.SSLError) as error:
+                last_error = error
+                connection.close()
+        raise ValueError(
+            f"TLS validation failed for {host}: {last_error or 'connection failed'}"
+        )
+
+    @classmethod
+    def tcp_probe(cls, host: str, port: int) -> dict[str, Any]:
+        last_error: OSError | None = None
+        for family, socket_address, address in cls.public_addresses(host, port):
+            connection = socket.socket(family, socket.SOCK_STREAM)
+            connection.settimeout(4)
+            started_at = time.monotonic()
+            try:
+                connection.connect(socket_address)
+                return {
+                    "status": "reachable",
+                    "host": host,
+                    "port": port,
+                    "resolved_ip": address,
+                    "latency_ms": round((time.monotonic() - started_at) * 1000),
+                }
+            except OSError as error:
+                last_error = error
+            finally:
+                connection.close()
+        raise OSError(f"TCP connection failed: {last_error or 'unreachable'}")
+
+    @staticmethod
+    def diagnostic_client_config(
+        model: dict[str, Any],
+        client: dict[str, Any],
+        address: str,
+        port: int,
+        proxy_port: int,
+    ) -> dict[str, Any]:
+        settings = model["settings"]
+        reality_settings: dict[str, Any] = {
+            "fingerprint": "chrome",
+            "serverName": settings["reality_server_name"],
+            "password": settings["reality_public_key"],
+            "shortId": client["short_id"],
+        }
+        if client.get("spider_x"):
+            reality_settings["spiderX"] = client["spider_x"]
+        xhttp_settings: dict[str, Any] = {"path": settings["xhttp_path"]}
+        mode = {
+            "fast": "stream-one",
+            "stealth": "packet-up",
+        }.get(str(client.get("profile")))
+        if mode:
+            xhttp_settings["mode"] = mode
+        return {
+            "log": {"loglevel": "warning"},
+            "inbounds": [
+                {
+                    "listen": "127.0.0.1",
+                    "port": proxy_port,
+                    "protocol": "http",
+                    "settings": {},
+                }
+            ],
+            "outbounds": [
+                {
+                    "tag": "noxroute-diagnostic",
+                    "protocol": "vless",
+                    "settings": {
+                        "vnext": [
+                            {
+                                "address": address,
+                                "port": port,
+                                "users": [
+                                    {
+                                        "id": client["id"],
+                                        "encryption": "none",
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    "streamSettings": {
+                        "network": "xhttp",
+                        "security": "reality",
+                        "xhttpSettings": xhttp_settings,
+                        "realitySettings": reality_settings,
+                    },
+                }
+            ],
+        }
+
+    @staticmethod
+    def available_loopback_port() -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            return int(listener.getsockname()[1])
+
+    @staticmethod
+    def wait_for_loopback_port(port: int, process: subprocess.Popen[Any]) -> None:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                raise RuntimeError(
+                    f"Diagnostic Xray client exited with status {process.returncode}"
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                    return
+            except OSError:
+                time.sleep(0.1)
+        raise TimeoutError("Diagnostic proxy did not become ready")
+
+    @staticmethod
+    def public_ip_through_proxy(port: int) -> str:
+        proxy_url = f"http://127.0.0.1:{port}"
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        )
+        last_error: Exception | None = None
+        for endpoint in ("https://api.ipify.org", "https://icanhazip.com"):
+            request = urllib.request.Request(
+                endpoint,
+                headers={"User-Agent": "NoxRouteNeo-Diagnostic/1"},
+            )
+            try:
+                with opener.open(request, timeout=12) as response:
+                    value = response.read(128).decode("ascii").strip()
+                if ipaddress.ip_address(value).is_global:
+                    return value
+            except (OSError, ValueError, urllib.error.URLError) as error:
+                last_error = error
+        raise RuntimeError(f"Tunnel HTTP probe failed: {last_error or 'no response'}")
+
+    def run_tunnel_probe(
+        self,
+        model: dict[str, Any],
+        client: dict[str, Any],
+        address: str,
+        port: int,
+    ) -> dict[str, Any]:
+        proxy_port = self.available_loopback_port()
+        config = self.diagnostic_client_config(
+            model,
+            client,
+            address,
+            port,
+            proxy_port,
+        )
+        started_at = time.monotonic()
+        with tempfile.TemporaryDirectory(prefix="noxroute-diagnostic-") as directory:
+            config_path = Path(directory) / "client.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            process = subprocess.Popen(
+                [XRAY_BINARY, "run", "-config", str(config_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                self.wait_for_loopback_port(proxy_port, process)
+                exit_ip = self.public_ip_through_proxy(proxy_port)
+            finally:
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+        return {
+            "status": "passed",
+            "exit_ip": exit_ip,
+            "latency_ms": round((time.monotonic() - started_at) * 1000),
+        }
+
+    def run_vpn_diagnostic(self) -> dict[str, Any]:
+        if not self.diagnostic_lock.acquire(blocking=False):
+            raise RuntimeError("A VPN diagnostic is already running")
+        try:
+            with self.model_lock:
+                model = self.current_model
+            if not model:
+                raise RuntimeError("Runtime configuration is not ready")
+            if not self.xray or self.xray.poll() is not None:
+                raise RuntimeError("Xray is not running")
+            settings = model["settings"]
+            if not settings.get("reality_public_key"):
+                raise RuntimeError("REALITY public key is missing")
+
+            reality = self.validate_reality_target(
+                str(settings["reality_target"]),
+                str(settings["reality_server_name"]),
+            )
+            vpn_domain = str(settings.get("vpn_domain") or "").strip()
+            vpn_port = int(settings.get("vpn_port") or 443)
+            if not vpn_domain:
+                raise RuntimeError("VPN domain is not configured")
+
+            endpoint: dict[str, Any]
+            endpoint_error: str | None = None
+            try:
+                endpoint = self.tcp_probe(vpn_domain, vpn_port)
+            except (OSError, ValueError) as error:
+                endpoint_error = str(error)
+                endpoint = {
+                    "status": "unreachable",
+                    "host": vpn_domain,
+                    "port": vpn_port,
+                    "error": endpoint_error,
+                }
+
+            diagnostic_id = str(uuid.uuid4())
+            client = {
+                "id": diagnostic_id,
+                "email": f"diagnostic-{diagnostic_id}",
+                "short_id": model["instance_short_id"],
+                "profile": "balanced",
+                "spider_x": None,
+            }
+            self.add_inbound_user_live(client)
+            try:
+                public_error: str | None = None
+                tunnel_scope = "public-endpoint"
+                try:
+                    if endpoint["status"] != "reachable":
+                        raise RuntimeError(
+                            endpoint_error or "Public endpoint is unreachable"
+                        )
+                    tunnel = self.run_tunnel_probe(
+                        model,
+                        client,
+                        vpn_domain,
+                        vpn_port,
+                    )
+                except (OSError, RuntimeError, TimeoutError) as error:
+                    public_error = str(error)
+                    tunnel_scope = "local-fallback"
+                    tunnel = self.run_tunnel_probe(
+                        model,
+                        client,
+                        "127.0.0.1",
+                        XRAY_LISTEN_PORT,
+                    )
+            finally:
+                try:
+                    self.remove_inbound_user_live(client)
+                except RuntimeError as error:
+                    LOGGER.warning("Could not remove diagnostic Xray user: %s", error)
+
+            tunnel.update(
+                {
+                    "scope": tunnel_scope,
+                    "device_name": "Runtime probe",
+                    "public_endpoint_error": public_error,
+                }
+            )
+            return {
+                "ok": True,
+                "tested_at": datetime.now(timezone.utc).isoformat(),
+                "endpoint": endpoint,
+                "reality": reality,
+                "tunnel": tunnel,
+            }
+        finally:
+            self.diagnostic_lock.release()
+
+    @staticmethod
     def caddyfile(settings: dict[str, Any]) -> str:
         domain = settings.get("admin_domain")
         port = int(settings.get("admin_https_port") or 8443)
@@ -1335,7 +1992,6 @@ https://{domain}:{port} {{
                     self.last_cleanup = now
                     if any(deleted.values()):
                         LOGGER.info("Retention cleanup removed rows: %s", deleted)
-                limits_changed = False
                 commands = self.claim_commands()
                 model = self.load_model()
                 self.write_security_policy(model)
@@ -1411,14 +2067,18 @@ https://{domain}:{port} {{
                     "REVOKE_DEVICE",
                     "FINALIZE_SETUP",
                 }
-                requires_sync = (
-                    limits_changed
-                    or xray_stopped
+                requires_reconcile = (
+                    xray_stopped
                     or fingerprint != self.config_fingerprint
                     or any(command.type in sync_types for command in commands)
                 )
-                if requires_sync:
+                if xray_stopped:
                     self.sync_runtime(model)
+                elif requires_reconcile:
+                    self.reconcile_runtime(model)
+
+                with self.model_lock:
+                    self.current_model = model
 
                 now = time.monotonic()
                 telemetry_interval = max(
@@ -1467,20 +2127,66 @@ https://{domain}:{port} {{
 class HealthHandler(http.server.BaseHTTPRequestHandler):
     agent: RuntimeAgent
 
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path != "/health":
-            self.send_error(404)
-            return
-        payload = json.dumps(self.agent.health_payload()).encode("utf-8")
-        status = 200 if self.agent.health_payload()["status"] == "ready" else 503
+    def send_json(self, status: int, value: dict[str, Any]) -> None:
+        payload = json.dumps(value).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         try:
             self.wfile.write(payload)
         except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def control_authorized(self) -> bool:
+        expected = f"Bearer {runtime_control_token()}"
+        supplied = self.headers.get("Authorization", "")
+        return hmac.compare_digest(supplied, expected)
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path != "/health":
+            self.send_error(404)
+            return
+        status = 200 if self.agent.health_payload()["status"] == "ready" else 503
+        self.send_json(status, self.agent.health_payload())
+
+    def do_POST(self) -> None:  # noqa: N802
+        if not self.control_authorized():
+            self.send_json(401, {"ok": False, "error": "Unauthorized"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.send_json(400, {"ok": False, "error": "Invalid content length"})
+            return
+        if length > 8192:
+            self.send_json(413, {"ok": False, "error": "Request body is too large"})
+            return
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(body, dict):
+                raise ValueError("Request body must be a JSON object")
+            if self.path == "/diagnostics/reality":
+                target = str(body.get("target") or "")
+                server_name = str(body.get("server_name") or "")
+                self.send_json(
+                    200,
+                    self.agent.validate_reality_target(target, server_name),
+                )
+                return
+            if self.path == "/diagnostics/vpn":
+                self.send_json(200, self.agent.run_vpn_diagnostic())
+                return
+            self.send_json(404, {"ok": False, "error": "Not found"})
+        except (json.JSONDecodeError, ValueError) as error:
+            self.send_json(422, {"ok": False, "error": str(error)[:500]})
+        except (OSError, RuntimeError, TimeoutError) as error:
+            self.send_json(503, {"ok": False, "error": str(error)[:500]})
+        except Exception:  # noqa: BLE001
+            LOGGER.exception("Runtime diagnostic request failed")
+            self.send_json(500, {"ok": False, "error": "Diagnostic failed"})
             return
 
     def log_message(self, format_string: str, *args: Any) -> None:

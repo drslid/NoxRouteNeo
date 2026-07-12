@@ -96,6 +96,7 @@ export const instanceSettings = pgTable("instance_settings", {
     .notNull()
     .default("www.speedtest.net"),
   realityPublicKey: text("reality_public_key"),
+  realityShortId: text("reality_short_id"),
   defaultConnectionProfile: connectionProfile("default_connection_profile")
     .notNull()
     .default("balanced"),
@@ -217,7 +218,6 @@ export const devices = pgTable(
   (table) => [
     index("devices_vpn_access_id_idx").on(table.vpnAccessId),
     index("devices_status_idx").on(table.status),
-    uniqueIndex("devices_reality_short_id_uidx").on(table.realityShortId),
   ],
 );
 

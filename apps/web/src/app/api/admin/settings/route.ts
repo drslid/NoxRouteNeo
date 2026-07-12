@@ -9,7 +9,8 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
-import { apiErrorResponse, requireApiSession } from "@/lib/api-auth";
+import { ApiError, apiErrorResponse, requireApiSession } from "@/lib/api-auth";
+import { checkRealityTarget, RuntimeControlError } from "@/lib/runtime-health";
 import { encryptSecret } from "@/lib/secrets";
 
 function normalizeDomain(value: string) {
@@ -38,6 +39,32 @@ export async function PATCH(request: NextRequest) {
     const adminDomain = normalizeDomain(input.adminDomain);
     const vpnDomain = normalizeDomain(input.vpnDomain);
     const duckdnsToken = input.duckdnsToken?.trim() || null;
+
+    const [currentSettings] = await db
+      .select({
+        realityTarget: instanceSettings.realityTarget,
+        realityServerName: instanceSettings.realityServerName,
+      })
+      .from(instanceSettings)
+      .where(eq(instanceSettings.id, "default"))
+      .limit(1);
+    const realityChanged =
+      !currentSettings ||
+      currentSettings.realityTarget !== input.realityTarget ||
+      currentSettings.realityServerName !== input.realityServerName;
+    if (realityChanged) {
+      try {
+        await checkRealityTarget({
+          target: input.realityTarget,
+          serverName: input.realityServerName,
+        });
+      } catch (error) {
+        if (error instanceof RuntimeControlError) {
+          throw new ApiError(error.status, error.message);
+        }
+        throw error;
+      }
+    }
 
     await db.transaction(async (tx) => {
       await tx
