@@ -182,11 +182,13 @@ The installer pulls four public OCI images from `ghcr.io/drslid`: `noxrouteneo-w
 | Tag | Meaning |
 | --- | --- |
 | `main` | Latest validated commit on the default branch; used by the alpha one-command installer |
-| `sha-<commit>` | Immutable image set for one exact Git commit |
-| `<major>.<minor>.<patch>` | Versioned release generated from a `vX.Y.Z` Git tag |
+| `sha-<commit>` | Commit-addressed image set for one exact Git revision |
+| `<semver>` | Versioned release generated from a SemVer Git tag such as `v1.0.0-alpha.1` |
 | `latest` | Most recent stable SemVer release; prereleases never move this tag |
 
 GitHub Actions publishes build provenance and an SBOM with every image. Compose keeps source build definitions for development, but production installation never falls back to compiling silently. Set `NOXROUTE_INSTALL_MODE=source` explicitly when a local source build is intended.
+
+Use the manifest `sha256` digest, rather than any tag, when cryptographic immutability is required.
 
 The current pinned prerelease image set is `1.0.0-alpha.1`.
 
