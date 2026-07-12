@@ -118,12 +118,14 @@ The Docker socket, PostgreSQL port, Xray API and internal control APIs are not e
 | Architecture     | `amd64` or `arm64`                                    |
 | Access           | `root` or a user with `sudo`                          |
 | Network          | Public IPv4 address                                   |
-| Memory           | 1 GiB RAM; the installer can add temporary build swap |
-| Disk             | 8 GiB total and 4 GiB free; 12 GiB total recommended  |
+| Memory           | 2 GiB RAM for the current source build                 |
+| Disk             | 12 GiB total and 6 GiB free; 20 GiB recommended        |
 | Public TCP ports | `80`, `443`, `8443`                                   |
 | DNS              | One DuckDNS subdomain and its account token           |
 
 Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
+
+The running stack can support a small test workload on 1 GiB, but compiling the Next.js image from source on that amount of memory is slow and unreliable. Prebuilt GHCR images will remove this build-time requirement in a later release.
 
 ## One-command installation
 
@@ -174,6 +176,8 @@ All accounts use the same sign-in URL. Better Auth redirects each role to the co
 
 Web sessions expire after one hour. Administrators cannot promote other administrators, and only the owner can reset an administrator password.
 
+`Active sessions` in the Security page means active web sign-ins, not VPN tunnels. Their public source IP addresses link to a KeyCDN geolocation lookup. Per-device VPN transfer, connection time and sampled active connections are shown in `Activity`; NoxRouteNeo does not enable destination-level Xray access logging just to recover VPN source IPs.
+
 ## Connect a device with INCY
 
 Each phone receives a separate subscription credential. The subscription URL is the connection string; NoxRouteNeo does not expose the raw VLESS credential in the user portal because a raw VLESS string cannot be tied to physical hardware.
@@ -181,12 +185,23 @@ Each phone receives a separate subscription credential. The subscription URL is 
 1. The administrator creates a VPN user and sets its quota, expiry, speed and maximum number of devices.
 2. The user signs in through the same web URL and opens `Devices`.
 3. The user creates a device, names it and selects `iPhone / iPad`, `Android` or `Desktop` plus a connection profile.
+
+<p align="center">
+  <img src="docs/assets/register-device.png" alt="Registering an iPhone with the Balanced connection profile in the NoxRouteNeo user portal" width="1200">
+</p>
+
 4. In INCY, the user enables HWID sharing for subscription requests.
 5. The user opens `Connection`, scans the QR code with INCY or copies the subscription URL into INCY.
-6. INCY refreshes the subscription, displays its latency and binds that credential to the phone HWID.
+6. INCY refreshes the subscription, binds that credential to the phone HWID and can measure the endpoint latency.
 7. The user starts the VPN. To move the credential to another phone, the old device must be revoked and recreated in NoxRouteNeo.
 
+<p align="center">
+  <img src="docs/assets/user-connection.png" alt="Device-bound INCY subscription QR code and URL in the NoxRouteNeo user portal" width="1200">
+</p>
+
 The first valid INCY refresh owns the credential. A later refresh with another HWID receives `403`. NoxRouteNeo stores only an HMAC digest of the HWID, plus the reported platform/model and last subscription IP. This prevents reuse of the same subscription QR in the normal INCY flow; it cannot stop a compromised client from extracting and copying the underlying VLESS credential.
+
+The subscription response sends INCY `sort-order: ping`, which asks the application to test and order endpoints by latency. Latency is measured by INCY from the phone's current network; the server cannot inject a truthful mobile latency value. Because NoxRouteNeo currently publishes one endpoint, some INCY views show a single ping only after a refresh or connection test.
 
 ## Connection profiles
 

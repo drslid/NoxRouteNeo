@@ -40,8 +40,7 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    window.location.assign("/");
   }
 
   return (

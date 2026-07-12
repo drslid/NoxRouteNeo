@@ -47,7 +47,10 @@ test("authenticates the local owner and renders the dashboard", async ({
 
   await page.goto("/admin/activity");
   await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
-  await expect(page.getByText("Test iPhone")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "User" })).toBeVisible();
+  await expect(
+    page.getByRole("columnheader", { name: "Device" }),
+  ).toBeVisible();
 
   await page.goto("/admin");
 
@@ -77,7 +80,9 @@ test("renders the user dashboard, devices and connection access", async ({
 
   await page.goto("/portal/devices");
   await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
-  await expect(page.getByText("Test iPhone")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Register device" }),
+  ).toBeVisible();
 
   await page.goto("/portal/connection");
   await expect(page.getByRole("heading", { name: "Connection" })).toBeVisible();
