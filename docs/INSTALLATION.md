@@ -42,7 +42,7 @@ The first prompt selects the instance language:
 5 简体中文     10 اردو
 ```
 
-The selected language applies to all admin and user accounts and can later be changed in `Settings`.
+The selected language becomes the instance default and can later be changed in admin `Settings`. Each VPN user may override it for their own account from the portal navigation sidebar.
 
 The installer then asks for the existing DuckDNS subdomain and its token. You may enter either `example` or `example.duckdns.org`. The token is entered without terminal echo. Pressing Enter on the language prompt selects English.
 
@@ -65,8 +65,8 @@ tag to the bootstrap. The leading `v` is removed automatically when selecting
 the image tag:
 
 ```bash
-sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.1/install.sh -o /tmp/noxrouteneo-install.sh
-sudo env NOXROUTE_REF=v1.0.0-alpha.1 bash /tmp/noxrouteneo-install.sh
+sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.2/install.sh -o /tmp/noxrouteneo-install.sh
+sudo env NOXROUTE_REF=v1.0.0-alpha.2 bash /tmp/noxrouteneo-install.sh
 ```
 
 ## Unattended installation
@@ -129,7 +129,7 @@ The final output contains the admin URL, VPN endpoint, owner username and one-ti
 2. Sign in as `owner`.
 3. Change the generated password in `Security`.
 4. Enable TOTP and store recovery codes outside the VPS.
-5. Review the language and default user limits in `Settings`.
+5. Review the default language and default user limits in `Settings`.
 6. Create a VPN user.
 7. Sign in as that user and register one device.
 8. Install INCY from the [App Store](https://apps.apple.com/us/app/incy/id6756943388), [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) or the [official Desktop releases](https://github.com/INCY-DEV/incy-platforms/releases/latest).

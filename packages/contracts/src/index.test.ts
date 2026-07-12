@@ -6,6 +6,7 @@ import {
   runtimeCommandSchema,
   signInSchema,
   updateInstanceSettingsSchema,
+  updateOwnLocaleSchema,
 } from "./index";
 
 describe("shared contracts", () => {
@@ -53,6 +54,12 @@ describe("shared contracts", () => {
       "ur",
     ]);
     expect(appLocaleSchema.safeParse("en-US").success).toBe(false);
+    expect(updateOwnLocaleSchema.safeParse({ locale: "fr" }).success).toBe(
+      true,
+    );
+    expect(updateOwnLocaleSchema.safeParse({ locale: "en-US" }).success).toBe(
+      false,
+    );
   });
 
   it("accepts unlimited instance duration and quota", () => {

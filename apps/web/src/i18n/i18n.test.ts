@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { localeDirection, localeOptions, normalizeLocale } from "./config";
+import {
+  localeDirection,
+  localeOptions,
+  normalizeLocale,
+  resolveLocale,
+} from "./config";
 import { getMessages } from "./messages";
 
 describe("instance localization", () => {
@@ -27,5 +32,11 @@ describe("instance localization", () => {
   it("falls back to English for invalid persisted values", () => {
     expect(normalizeLocale("xx")).toBe("en");
     expect(normalizeLocale(null)).toBe("en");
+  });
+
+  it("prefers a personal locale and falls back to the instance locale", () => {
+    expect(resolveLocale("ar", "fr")).toBe("ar");
+    expect(resolveLocale(null, "fr")).toBe("fr");
+    expect(resolveLocale("invalid", "de")).toBe("de");
   });
 });

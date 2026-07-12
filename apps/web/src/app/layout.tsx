@@ -14,7 +14,20 @@ export const metadata: Metadata = {
     template: "%s | NoxRouteNeo",
   },
   description: "Private self-hosted VPN gateway administration.",
-  robots: { index: false, follow: false },
+  robots: {
+    index: false,
+    follow: false,
+    noarchive: true,
+    nosnippet: true,
+    noimageindex: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noarchive: true,
+      nosnippet: true,
+      noimageindex: true,
+    },
+  },
 };
 
 export const viewport: Viewport = {

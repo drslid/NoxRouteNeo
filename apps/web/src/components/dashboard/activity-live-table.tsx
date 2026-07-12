@@ -20,7 +20,7 @@ import {
   profileMessageKey,
   statusMessageKey,
 } from "@/i18n/labels";
-import { formatBytes, formatDuration } from "@/lib/format";
+import { formatBytes, formatDateTime, formatDuration } from "@/lib/format";
 
 type ActivityData = Awaited<ReturnType<typeof getAdminActivity>>;
 
@@ -98,7 +98,7 @@ export function ActivityLiveTable({
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {row.lastSeenAt
-                        ? new Date(row.lastSeenAt).toLocaleString(numberLocale)
+                        ? formatDateTime(row.lastSeenAt, numberLocale)
                         : t("common.never")}
                     </TableCell>
                     <TableCell>

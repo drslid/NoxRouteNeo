@@ -2,10 +2,12 @@
 
 import { authClient } from "@noxroute/auth/client";
 import type { AppRole } from "@noxroute/auth/permissions";
-import { Badge, Button, NoxRouteLogo, cn } from "@noxroute/ui";
+import type { AppLocale } from "@noxroute/contracts";
+import { Badge, Button, NoxRouteLogo, Select, cn } from "@noxroute/ui";
 import {
   Activity,
   Gauge,
+  Globe2,
   KeyRound,
   ListChecks,
   LogOut,
@@ -21,8 +23,10 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
+import { localeOptions } from "@/i18n/config";
 import type { MessageKey } from "@/i18n/messages";
 
 type NavigationItem = {
@@ -66,14 +70,38 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [languageSaving, setLanguageSaving] = React.useState(false);
   const navigation = role === "user" ? userNavigation : adminNavigation;
 
   async function logout() {
     await authClient.signOut();
     router.replace("/sign-in");
     router.refresh();
+  }
+
+  async function changeLanguage(nextLocale: AppLocale) {
+    if (nextLocale === locale || languageSaving) return;
+    setLanguageSaving(true);
+    try {
+      const response = await fetch("/api/account/locale", {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ locale: nextLocale }),
+      });
+      if (!response.ok) {
+        throw new Error("Language preference could not be saved");
+      }
+      router.refresh();
+    } catch {
+      toast.error(t("settings.updateFailed"));
+    } finally {
+      setLanguageSaving(false);
+    }
   }
 
   const sidebar = (
@@ -111,6 +139,34 @@ export function AppShell({
         })}
       </nav>
       <div className="border-t border-white/10 p-3">
+        {role === "user" && (
+          <div className="mb-2 flex items-center gap-2 px-2">
+            <Globe2
+              className="size-4 shrink-0 text-sidebar-muted"
+              aria-hidden="true"
+            />
+            <Select
+              value={locale}
+              disabled={languageSaving}
+              className="h-8 min-w-0 border-white/15 bg-white/10 text-xs text-sidebar-foreground shadow-none"
+              aria-label={t("common.language")}
+              title={t("common.language")}
+              onChange={(event) =>
+                void changeLanguage(event.target.value as AppLocale)
+              }
+            >
+              {localeOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  className="bg-background text-foreground"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex items-center gap-3 rounded-md px-2 py-2">
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-sidebar-foreground">
             {user.name.slice(0, 2).toUpperCase()}

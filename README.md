@@ -77,10 +77,12 @@ It is designed for people who want a small personal VPN server without operating
 ### User portal
 
 - View data usage, quota, connection time, expiry and active connections.
+- Review per-device transfer, connection time, last activity and live connection status directly on the VPN dashboard.
 - Register a separate credential for each phone, tablet or desktop.
 - Import a stable, device-bound subscription in INCY with one click, QR code or copy/paste.
 - Bind an INCY subscription to the first phone HWID that refreshes it.
 - Select `Fast`, `Balanced` or `Stealth` for each registered device.
+- Choose a personal interface language without changing the instance default for other accounts.
 - Revoke devices and manage password, sessions and TOTP.
 
 ### Deployment
@@ -138,16 +140,16 @@ The Docker socket, PostgreSQL port, Xray API and internal control APIs are not e
 
 ## Requirements
 
-| Requirement      | Minimum                                         |
-| ---------------- | ----------------------------------------------- |
-| Operating system | Ubuntu LTS or Debian                            |
-| Architecture     | `amd64` or `arm64`                              |
-| Access           | `root` or a user with `sudo`                    |
-| Network          | Public IPv4 address                             |
-| Memory           | 1 GiB RAM; 2 GiB recommended                    |
-| Disk             | 8 GiB total and 2 GiB free; 16 GiB recommended  |
-| Public TCP ports | `80`, `443`, `8443`                             |
-| DNS              | One DuckDNS subdomain and its account token     |
+| Requirement      | Minimum                                        |
+| ---------------- | ---------------------------------------------- |
+| Operating system | Ubuntu LTS or Debian                           |
+| Architecture     | `amd64` or `arm64`                             |
+| Access           | `root` or a user with `sudo`                   |
+| Network          | Public IPv4 address                            |
+| Memory           | 1 GiB RAM; 2 GiB recommended                   |
+| Disk             | 8 GiB total and 2 GiB free; 16 GiB recommended |
+| Public TCP ports | `80`, `443`, `8443`                            |
+| DNS              | One DuckDNS subdomain and its account token    |
 
 Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
 
@@ -157,10 +159,10 @@ The normal installer downloads prebuilt multi-architecture images from GHCR, so 
 
 Before running the command, create one DuckDNS subdomain, copy its token, and open TCP ports `80`, `443` and `8443` in the VPS provider firewall. Provider firewalls cannot be changed safely by a provider-independent installer.
 
-On a fresh Ubuntu or Debian VPS, copy and paste this single command. It installs the pinned `v1.0.0-alpha.1` release:
+On a fresh Ubuntu or Debian VPS, copy and paste this single command. It installs the pinned `v1.0.0-alpha.2` release:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.1/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.1 bash /tmp/noxrouteneo-install.sh
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.2/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.2 bash /tmp/noxrouteneo-install.sh
 ```
 
 This is an image-based installation. The script downloads a shallow project checkout for its Compose definition and management scripts, installs Docker when required, then pulls the matching public GHCR images. It does not compile the application on the VPS and does not require a GitHub or GHCR login.
@@ -183,18 +185,18 @@ The command is safe to run again. A completed installation is only verified. An 
 
 The installer pulls four public OCI images from `ghcr.io/drslid`: `noxrouteneo-web`, `noxrouteneo-runtime`, `noxrouteneo-traffic-gateway` and `noxrouteneo-security-agent`. Every image supports both `linux/amd64` and `linux/arm64`.
 
-| Tag | Meaning |
-| --- | --- |
-| `main` | Latest validated development commit; not recommended for a normal installation |
-| `sha-<commit>` | Commit-addressed image set for one exact Git revision |
-| `<semver>` | Versioned release generated from a SemVer Git tag such as `v1.0.0-alpha.1` |
-| `latest` | Most recent stable SemVer release; prereleases never move this tag |
+| Tag            | Meaning                                                                        |
+| -------------- | ------------------------------------------------------------------------------ |
+| `main`         | Latest validated development commit; not recommended for a normal installation |
+| `sha-<commit>` | Commit-addressed image set for one exact Git revision                          |
+| `<semver>`     | Versioned release generated from a SemVer Git tag such as `v1.0.0-alpha.1`     |
+| `latest`       | Most recent stable SemVer release; prereleases never move this tag             |
 
 GitHub Actions publishes build provenance and an SBOM with every image. Compose keeps source build definitions for development, but production installation never falls back to compiling silently. Set `NOXROUTE_INSTALL_MODE=source` explicitly when a local source build is intended.
 
 Use the manifest `sha256` digest, rather than any tag, when cryptographic immutability is required.
 
-The current pinned prerelease image set used by the README command is `1.0.0-alpha.1`.
+The current pinned prerelease image set used by the README command is `1.0.0-alpha.2`.
 
 ### First sign-in
 
@@ -313,7 +315,7 @@ The flow ceiling is an admission safety limit, not a device count. A single phon
 
 ## Languages
 
-The instance language is selected during installation and can later be changed in `Settings`. The selected language applies to every administrator and user on that VPS.
+The language selected during installation is the instance default and can later be changed by an administrator in `Settings`. Each VPN user can choose a personal language from the navigation sidebar; that preference is stored with the account and does not affect other users. Accounts without a personal preference continue to use the instance default.
 
 | Language           | Locale  | Direction |
 | ------------------ | ------- | --------- |
@@ -340,9 +342,12 @@ The instance language is selected during installation and can later be changed i
 - Database and internal control APIs stay on private networks or loopback.
 - Runtime diagnostic requests use a purpose-specific HMAC token derived locally from the application encryption key.
 - Containers run with dropped capabilities, read-only filesystems where possible and `no-new-privileges`.
+- Search indexing is disabled through HTML metadata, `robots.txt` and an `X-Robots-Tag` header on every application response.
 - The application does not store browsing history, requested domains or destination URLs.
 
 The traffic gateway uses a fail-open path when it becomes unavailable so that browsing is not interrupted. During a bypass, per-account TCP speed limits are not enforced; the admin dashboard reports this state explicitly.
+
+Robot directives are respected by compliant search engines but are not an access-control mechanism. Authentication, rate limiting and IP protection remain the security boundaries.
 
 Never commit `.env`, DuckDNS tokens, REALITY private keys, passwords, AWS credentials, SSH keys or application data.
 

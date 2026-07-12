@@ -42,6 +42,23 @@ export function formatDate(
   }).format(new Date(value));
 }
 
+export function formatDateTime(
+  value: Date | string | null | undefined,
+  locale = "en",
+  emptyValue = "Never",
+) {
+  if (!value) return emptyValue;
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(new Date(value));
+}
+
 export function calculateRemainingDays(
   expiresAt: Date | string | null | undefined,
   now: Date | string | number = Date.now(),

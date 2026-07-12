@@ -1,25 +1,41 @@
 import "server-only";
 
 import type { AppLocale } from "@noxroute/contracts";
-import { db, instanceSettings } from "@noxroute/db";
+import { db, instanceSettings, user } from "@noxroute/db";
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 
-import { defaultLocale, normalizeLocale } from "./config";
+import { getSession } from "@/lib/session";
+
+import { defaultLocale, resolveLocale } from "./config";
 import { getMessages, type MessageKey } from "./messages";
 
 type Values = Record<string, string | number>;
 
 export const getAppLocale = cache(async (): Promise<AppLocale> => {
   try {
+    const session = await getSession();
     const [settings] = await db
       .select({ appLocale: instanceSettings.appLocale })
       .from(instanceSettings)
       .where(eq(instanceSettings.id, "default"))
       .limit(1);
-    return normalizeLocale(settings?.appLocale ?? process.env.APP_LOCALE);
+
+    if (session) {
+      const [account] = await db
+        .select({ locale: user.locale })
+        .from(user)
+        .where(eq(user.id, session.user.id))
+        .limit(1);
+      return resolveLocale(
+        account?.locale,
+        settings?.appLocale ?? process.env.APP_LOCALE,
+      );
+    }
+
+    return resolveLocale(null, settings?.appLocale ?? process.env.APP_LOCALE);
   } catch {
-    return normalizeLocale(process.env.APP_LOCALE ?? defaultLocale);
+    return resolveLocale(null, process.env.APP_LOCALE ?? defaultLocale);
   }
 });
 

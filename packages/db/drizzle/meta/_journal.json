@@ -50,6 +50,13 @@
       "when": 1783881590140,
       "tag": "0006_colorful_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783888668771,
+      "tag": "0007_new_george_stacy",
+      "breakpoints": true
     }
   ]
 }

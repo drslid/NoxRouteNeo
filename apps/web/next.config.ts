@@ -3,8 +3,12 @@ import path from "node:path";
 
 const isProduction = process.env.NODE_ENV === "production";
 
-const securityHeaders = [
+export const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
+  {
+    key: "X-Robots-Tag",
+    value: "noindex, nofollow, noarchive, nosnippet, noimageindex",
+  },
   { key: "Referrer-Policy", value: "no-referrer" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },

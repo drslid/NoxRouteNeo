@@ -34,5 +34,16 @@ export async function getPortalDashboard(userId: string) {
         }
       : null,
     deviceCount: registeredDevices.length,
+    devices: registeredDevices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      platform: device.platform,
+      profile: device.profile,
+      status: device.status,
+      activeConnections: device.activeConnections,
+      usedBytes: String(device.usedBytes),
+      connectedSeconds: String(device.connectedSeconds),
+      lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+    })),
   };
 }

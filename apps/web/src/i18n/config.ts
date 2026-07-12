@@ -24,6 +24,14 @@ export function normalizeLocale(value: unknown): AppLocale {
   return parsed.success ? parsed.data : defaultLocale;
 }
 
+export function resolveLocale(
+  personalLocale: unknown,
+  instanceLocale: unknown,
+): AppLocale {
+  const personal = appLocaleSchema.safeParse(personalLocale);
+  return personal.success ? personal.data : normalizeLocale(instanceLocale);
+}
+
 export function localeDirection(locale: AppLocale): "ltr" | "rtl" {
   return locale === "ar" || locale === "ur" ? "rtl" : "ltr";
 }

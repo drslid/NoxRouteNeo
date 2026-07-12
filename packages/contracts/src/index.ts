@@ -17,6 +17,11 @@ export const appLocaleSchema = z.enum([
 ]);
 export type AppLocale = z.infer<typeof appLocaleSchema>;
 
+export const updateOwnLocaleSchema = z.object({
+  locale: appLocaleSchema,
+});
+export type UpdateOwnLocaleInput = z.infer<typeof updateOwnLocaleSchema>;
+
 export const usernameSchema = z
   .string()
   .trim()
