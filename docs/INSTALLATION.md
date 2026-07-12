@@ -8,7 +8,7 @@ Prepare:
 
 - an Ubuntu LTS or Debian VPS with public IPv4;
 - `root` access or a user with `sudo`;
-- at least 1 GiB RAM, an 8 GiB disk and 4 GiB free before installation;
+- at least 2 GiB RAM, a 12 GiB disk and 6 GiB free for the current source build;
 - one DuckDNS subdomain;
 - the DuckDNS account token;
 - TCP ports `80`, `443` and `8443` open in both the provider firewall and the OS firewall.
@@ -16,8 +16,10 @@ Prepare:
 Port `443` is reserved for Xray. The web portal uses HTTPS on `8443`.
 Both services use the same DuckDNS hostname.
 
-A 12 GiB or larger disk is recommended to leave room for system updates,
-backups and future NoxRouteNeo images after installation.
+A 20 GiB or larger disk is recommended to leave room for system updates,
+backups and future NoxRouteNeo images after installation. The running stack can
+support a small test workload on 1 GiB, but building its images from source on
+that amount of memory is slow and unreliable.
 
 Creating the VPS, creating the DuckDNS name and opening the provider firewall are the only required manual preparation. A provider-independent installer cannot modify an arbitrary hosting provider's firewall.
 
@@ -101,7 +103,10 @@ The final output contains the admin URL, VPN endpoint, owner username and one-ti
 5. Review the language and default user limits in `Settings`.
 6. Create a VPN user.
 7. Sign in as that user and register one device.
-8. Enable HWID sharing in INCY, then import the subscription QR code or URL.
+8. Install INCY from the [App Store](https://apps.apple.com/us/app/incy/id6756943388), [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) or the [official desktop downloads](https://github.com/INCY-DEV/incy-platforms).
+9. Enable HWID sharing in INCY, then import the subscription QR code or URL.
+
+The admin `Settings` page and user `Connection` page contain these official links. Follow the complete [INCY connection guide](INCY.md) for device binding, latency and troubleshooting.
 
 ## Verification
 

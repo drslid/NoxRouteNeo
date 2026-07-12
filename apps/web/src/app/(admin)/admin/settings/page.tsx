@@ -9,6 +9,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@noxroute/ui";
 
 import { InstanceSettingsForm } from "@/components/settings/instance-settings-form";
+import { IncyResources } from "@/components/devices/incy-resources";
 import { getTranslations } from "@/i18n/server";
 import { normalizeLocale } from "@/i18n/config";
 import { sizingProfileMessageKey } from "@/i18n/labels";
@@ -129,6 +130,7 @@ export default async function SettingsPage() {
           ))}
         </CardContent>
       </Card>
+      <IncyResources audience="admin" t={t} />
       <Card>
         <CardHeader className="border-b">
           <CardTitle>{t("settings.vpnDefaults")}</CardTitle>

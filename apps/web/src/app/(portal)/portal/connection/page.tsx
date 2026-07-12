@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ConnectionCard } from "@/components/devices/connection-card";
+import { IncyResources } from "@/components/devices/incy-resources";
 import { getPortalData } from "@/data/portal";
 import { requireUser } from "@/lib/session";
 import { getTranslations } from "@/i18n/server";
@@ -31,6 +32,7 @@ export default async function ConnectionPage({
           {t("connection.description")}
         </p>
       </header>
+      <IncyResources audience="user" t={t} />
       {activeDevices.length > 0 ? (
         <div className="grid gap-4">
           {activeDevices.map((device) => (

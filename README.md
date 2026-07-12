@@ -112,16 +112,16 @@ The Docker socket, PostgreSQL port, Xray API and internal control APIs are not e
 
 ## Requirements
 
-| Requirement      | Minimum                                               |
-| ---------------- | ----------------------------------------------------- |
-| Operating system | Ubuntu LTS or Debian                                  |
-| Architecture     | `amd64` or `arm64`                                    |
-| Access           | `root` or a user with `sudo`                          |
-| Network          | Public IPv4 address                                   |
-| Memory           | 2 GiB RAM for the current source build                 |
-| Disk             | 12 GiB total and 6 GiB free; 20 GiB recommended        |
-| Public TCP ports | `80`, `443`, `8443`                                   |
-| DNS              | One DuckDNS subdomain and its account token           |
+| Requirement      | Minimum                                         |
+| ---------------- | ----------------------------------------------- |
+| Operating system | Ubuntu LTS or Debian                            |
+| Architecture     | `amd64` or `arm64`                              |
+| Access           | `root` or a user with `sudo`                    |
+| Network          | Public IPv4 address                             |
+| Memory           | 2 GiB RAM for the current source build          |
+| Disk             | 12 GiB total and 6 GiB free; 20 GiB recommended |
+| Public TCP ports | `80`, `443`, `8443`                             |
+| DNS              | One DuckDNS subdomain and its account token     |
 
 Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
 
@@ -181,6 +181,17 @@ Web sessions expire after one hour. Administrators cannot promote other administ
 ## Connect a device with INCY
 
 Each phone receives a separate subscription credential. The subscription URL is the connection string; NoxRouteNeo does not expose the raw VLESS credential in the user portal because a raw VLESS string cannot be tied to physical hardware.
+
+Install INCY from an official source:
+
+| Platform                                | Link                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| iPhone, iPad and Apple Silicon Mac      | [App Store](https://apps.apple.com/us/app/incy/id6756943388)                       |
+| Android                                 | [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy)        |
+| Windows, Linux and other desktop builds | [INCY downloads](https://github.com/INCY-DEV/incy-platforms)                       |
+| Help                                    | [Official website](https://incy.cc/) · [HWID guide](https://docs.incy.cc/en/hwid/) |
+
+NoxRouteNeo is not affiliated with INCY. A complete walkthrough is available in the [INCY connection guide](docs/INCY.md).
 
 1. The administrator creates a VPN user and sets its quota, expiry, speed and maximum number of devices.
 2. The user signs in through the same web URL and opens `Devices`.
@@ -289,6 +300,7 @@ Security reports should follow [SECURITY.md](SECURITY.md).
 ## Documentation
 
 - [Installation on Ubuntu and Debian](docs/INSTALLATION.md)
+- [Connect a device with INCY](docs/INCY.md)
 - [Local development](docs/DEVELOPMENT.md)
 - [VPS sizing and benchmarks](docs/SIZING.md)
 - [Security policy](SECURITY.md)
