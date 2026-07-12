@@ -144,14 +144,14 @@ The Docker socket, PostgreSQL port, Xray API and internal control APIs are not e
 | Architecture     | `amd64` or `arm64`                              |
 | Access           | `root` or a user with `sudo`                    |
 | Network          | Public IPv4 address                             |
-| Memory           | 2 GiB RAM for the current source build          |
-| Disk             | 12 GiB total and 6 GiB free; 20 GiB recommended |
+| Memory           | 1 GiB RAM; 2 GiB recommended                    |
+| Disk             | 8 GiB total and 2 GiB free; 16 GiB recommended  |
 | Public TCP ports | `80`, `443`, `8443`                             |
 | DNS              | One DuckDNS subdomain and its account token     |
 
 Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
 
-The running stack can support a small test workload on 1 GiB, but compiling the Next.js image from source on that amount of memory is slow and unreliable. Prebuilt GHCR images will remove this build-time requirement in a later release.
+The normal installer downloads prebuilt multi-architecture images from GHCR, so the VPS does not compile Next.js, Go or Python dependencies. A source build remains available for contributors and requires at least 2 GiB RAM plus 4 GiB free disk.
 
 ## One-command installation
 
@@ -171,9 +171,22 @@ The installer asks only for:
 
 The same domain serves the VPN on `443` and the web portal on `8443`. An optional Let's Encrypt contact email and separate admin/VPN domains remain available through unattended advanced variables, but are not needed for the normal installation.
 
-The command installs Git, Docker Engine and Docker Compose, validates the OS, architecture, memory, disk and ports, updates DuckDNS, generates every application secret, configures HTTPS and Xray, creates the initial owner, starts the stack and runs a strict local health report. It also adds the required UFW rules when UFW is already active.
+The command installs Git, Docker Engine and Docker Compose, validates the OS, architecture, disk and ports, updates DuckDNS, generates every application secret, downloads the matching GHCR images, configures HTTPS and Xray, creates the initial owner, starts the stack and runs a strict local health report. It also adds the required UFW rules when UFW is already active.
 
-The command is safe to run again. A completed installation is only verified. An interrupted first build is resumed automatically when no project container or initialized PostgreSQL database exists; detected data is never deleted automatically.
+The command is safe to run again. A completed installation is only verified. An interrupted first installation is resumed automatically when no project container or initialized PostgreSQL database exists; detected data is never deleted automatically.
+
+### Versioned container images
+
+The installer pulls four public OCI images from `ghcr.io/drslid`: `noxrouteneo-web`, `noxrouteneo-runtime`, `noxrouteneo-traffic-gateway` and `noxrouteneo-security-agent`. Every image supports both `linux/amd64` and `linux/arm64`.
+
+| Tag | Meaning |
+| --- | --- |
+| `main` | Latest validated commit on the default branch; used by the alpha one-command installer |
+| `sha-<commit>` | Immutable image set for one exact Git commit |
+| `<major>.<minor>.<patch>` | Versioned release generated from a `vX.Y.Z` Git tag |
+| `latest` | Most recent stable SemVer release; prereleases never move this tag |
+
+GitHub Actions publishes build provenance and an SBOM with every image. Compose keeps source build definitions for development, but production installation never falls back to compiling silently. Set `NOXROUTE_INSTALL_MODE=source` explicitly when a local source build is intended.
 
 ### First sign-in
 

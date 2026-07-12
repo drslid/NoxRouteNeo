@@ -9,6 +9,9 @@ ADMIN_HTTPS_PORT="${ADMIN_HTTPS_PORT:-8443}"
 APP_LOCALE="${APP_LOCALE:-}"
 DUCKDNS_DOMAIN="${DUCKDNS_DOMAIN:-}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
+INSTALL_MODE="${NOXROUTE_INSTALL_MODE:-image}"
+IMAGE_REGISTRY="${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}"
+IMAGE_TAG="${NOXROUTE_IMAGE_TAG:-main}"
 
 log() {
   printf '[noxrouteneo] %s\n' "$*"
@@ -90,10 +93,30 @@ need_privileges() {
 }
 
 validate_available_disk() {
-  local available_kib="$1" minimum_kib
-  minimum_kib=$((4 * 1024 * 1024))
+  local available_kib="$1" install_mode="${2:-${INSTALL_MODE}}" minimum_kib purpose
+  if [ "${install_mode}" = "source" ]; then
+    minimum_kib=$((4 * 1024 * 1024))
+    purpose="the initial source build"
+  else
+    minimum_kib=$((2 * 1024 * 1024))
+    purpose="the container images and persistent data"
+  fi
   [ "${available_kib}" -ge "${minimum_kib}" ] \
-    || die "At least 4 GiB of free disk space is required for the initial build; $((available_kib / 1024)) MiB is available. Resize the VPS disk or free space, then run the same command again."
+    || die "At least $((minimum_kib / 1024 / 1024)) GiB of free disk space is required for ${purpose}; $((available_kib / 1024)) MiB is available. Resize the VPS disk or free space, then run the same command again."
+}
+
+validate_install_strategy() {
+  case "${INSTALL_MODE}" in
+    image|source) ;;
+    *) die "NOXROUTE_INSTALL_MODE must be 'image' or 'source'." ;;
+  esac
+  [[ "${IMAGE_REGISTRY}" =~ ^[a-z0-9.-]+(:[0-9]+)?(/[a-z0-9._-]+)*$ ]] \
+    || die "NOXROUTE_IMAGE_REGISTRY is invalid."
+  [[ "${IMAGE_TAG}" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] \
+    || die "NOXROUTE_IMAGE_TAG is invalid."
+  export NOXROUTE_INSTALL_MODE="${INSTALL_MODE}"
+  export NOXROUTE_IMAGE_REGISTRY="${IMAGE_REGISTRY}"
+  export NOXROUTE_IMAGE_TAG="${IMAGE_TAG}"
 }
 
 validate_supported_host() {
@@ -113,7 +136,7 @@ validate_supported_host() {
   esac
 
   available_kib="$(df -Pk "${SRC_DIR}" | awk 'NR == 2 {print $4}')"
-  validate_available_disk "${available_kib}"
+  validate_available_disk "${available_kib}" "${INSTALL_MODE}"
 }
 
 install_dependencies() {
@@ -311,6 +334,8 @@ write_environment() {
     printf 'TRAFFIC_GATEWAY_MINIMUM_IDLE_TO_SHED=%s\n' "${TRAFFIC_GATEWAY_MINIMUM_IDLE_TO_SHED:-auto}"
     printf 'TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE=%s\n' "${TRAFFIC_GATEWAY_MAX_CONNECTION_IDLE:-auto}"
     printf 'TRAFFIC_GATEWAY_MAX_LIMITER_WAIT=1s\n'
+    printf 'NOXROUTE_IMAGE_REGISTRY=%s\n' "${IMAGE_REGISTRY}"
+    printf 'NOXROUTE_IMAGE_TAG=%s\n' "${IMAGE_TAG}"
     printf 'APP_LOCALE=%s\n' "${APP_LOCALE}"
     printf 'ADMIN_DOMAIN=%s\n' "${ADMIN_DOMAIN}"
     printf 'VPN_DOMAIN=%s\n' "${VPN_DOMAIN}"
@@ -344,8 +369,22 @@ wait_for_gateway() {
 }
 
 start_stack() {
-  log "Building and starting the production containers."
-  ${SUDO} docker compose --env-file "${ENV_FILE}" -f "${SRC_DIR}/compose.yaml" up -d --build
+  if [ "${INSTALL_MODE}" = "source" ]; then
+    log "Building the application images from source."
+    ensure_build_memory
+    ${SUDO} docker compose --env-file "${ENV_FILE}" -f "${SRC_DIR}/compose.yaml" \
+      build --pull
+  else
+    log "Downloading NoxRouteNeo ${IMAGE_TAG} images for this VPS architecture."
+    if ! ${SUDO} docker compose --env-file "${ENV_FILE}" -f "${SRC_DIR}/compose.yaml" \
+      pull; then
+      die "The GHCR images could not be downloaded. Verify Internet access and package visibility, or use NOXROUTE_INSTALL_MODE=source explicitly."
+    fi
+  fi
+
+  log "Starting the production containers."
+  ${SUDO} docker compose --env-file "${ENV_FILE}" -f "${SRC_DIR}/compose.yaml" \
+    up -d --no-build
   wait_for_url http://127.0.0.1:3000/api/health 90 2 \
     || die "The web application did not become healthy."
 }
@@ -386,7 +425,8 @@ finish_installation() {
   wait_for_url "https://${ADMIN_DOMAIN}:${ADMIN_HTTPS_PORT}/api/health" 120 3 \
     || die "HTTPS did not become reachable. Check ports 80 and ${ADMIN_HTTPS_PORT}."
 
-  if [ "${NOXROUTE_KEEP_BUILD_CACHE:-0}" != "1" ]; then
+  if [ "${INSTALL_MODE}" = "source" ] \
+    && [ "${NOXROUTE_KEEP_BUILD_CACHE:-0}" != "1" ]; then
     log "Removing Docker build cache to recover disk space."
     ${SUDO} docker builder prune --all --force >/dev/null 2>&1 || true
   fi
@@ -398,6 +438,9 @@ finish_installation() {
   {
     printf 'installed_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'source_revision=%s\n' "${source_revision}"
+    printf 'install_mode=%s\n' "${INSTALL_MODE}"
+    printf 'image_registry=%s\n' "${IMAGE_REGISTRY}"
+    printf 'image_tag=%s\n' "${IMAGE_TAG}"
   } | ${SUDO} tee "${INSTALL_MARKER}" >/dev/null
   ${SUDO} chmod 0600 "${INSTALL_MARKER}"
 
@@ -412,6 +455,7 @@ finish_installation() {
 main() {
   need_privileges
   choose_language
+  validate_install_strategy
   validate_supported_host
   install_dependencies
   configure_domains
@@ -423,7 +467,6 @@ main() {
   validate_inputs
   ensure_ports_free
   configure_local_firewall
-  ensure_build_memory
   update_duckdns
   write_environment
   start_stack

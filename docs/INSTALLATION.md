@@ -8,7 +8,7 @@ Prepare:
 
 - an Ubuntu LTS or Debian VPS with public IPv4;
 - `root` access or a user with `sudo`;
-- at least 2 GiB RAM, a 12 GiB disk and 6 GiB free for the current source build;
+- at least 1 GiB RAM, an 8 GiB disk and 2 GiB free;
 - one DuckDNS subdomain;
 - the DuckDNS account token;
 - TCP ports `80`, `443` and `8443` open in both the provider firewall and the OS firewall.
@@ -16,10 +16,11 @@ Prepare:
 Port `443` is reserved for Xray. The web portal uses HTTPS on `8443`.
 Both services use the same DuckDNS hostname.
 
-A 20 GiB or larger disk is recommended to leave room for system updates,
-backups and future NoxRouteNeo images after installation. The running stack can
-support a small test workload on 1 GiB, but building its images from source on
-that amount of memory is slow and unreliable.
+A 16 GiB or larger disk and 2 GiB RAM are recommended to leave room for system
+updates, backups and future NoxRouteNeo images. The normal installation pulls
+prebuilt `amd64` or `arm64` images from GHCR and does not compile the application
+on the VPS. An explicit source build requires at least 2 GiB RAM and 4 GiB free
+disk.
 
 Creating the VPS, creating the DuckDNS name and opening the provider firewall are the only required manual preparation. A provider-independent installer cannot modify an arbitrary hosting provider's firewall.
 
@@ -45,7 +46,28 @@ The selected language applies to all admin and user accounts and can later be ch
 
 The installer then asks for the existing DuckDNS subdomain and its token. You may enter either `example` or `example.duckdns.org`. The token is entered without terminal echo. Pressing Enter on the language prompt selects English.
 
-The bootstrap downloads the repository into `/opt/noxrouteneo/source`. If a completed installation already exists, it does not overwrite it and runs the strict diagnostic instead. If the first build stopped before creating containers or initializing PostgreSQL, running the same command updates the checkout, removes only the empty generated state and resumes. The bootstrap stops for manual recovery instead of deleting detected data.
+The bootstrap downloads the repository into `/opt/noxrouteneo/source`. If a completed installation already exists, it does not overwrite it and runs the strict diagnostic instead. If the first installation stopped before creating containers or initializing PostgreSQL, running the same command updates the checkout, removes only the empty generated state and resumes. The bootstrap stops for manual recovery instead of deleting detected data.
+
+The default `main` installation pulls these public images:
+
+```text
+ghcr.io/drslid/noxrouteneo-web:main
+ghcr.io/drslid/noxrouteneo-runtime:main
+ghcr.io/drslid/noxrouteneo-traffic-gateway:main
+ghcr.io/drslid/noxrouteneo-security-agent:main
+```
+
+Docker automatically selects the matching `linux/amd64` or `linux/arm64`
+manifest. No GHCR account or registry login is required for public images.
+
+For a tagged release, download the installer from the same tag and pass that
+tag to the bootstrap. The leading `v` is removed automatically when selecting
+the image tag:
+
+```bash
+sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0/install.sh -o /tmp/noxrouteneo-install.sh
+sudo env NOXROUTE_REF=v1.0.0 bash /tmp/noxrouteneo-install.sh
+```
 
 ## Unattended installation
 
@@ -59,12 +81,19 @@ sudo env \
   OWNER_NAME='Primary Owner' \
   OWNER_PASSWORD='replace-with-a-long-random-password' \
   SERVER_BANDWIDTH_MBIT=auto \
+  NOXROUTE_IMAGE_TAG=main \
   ./scripts/install.sh
 ```
 
 Supported `APP_LOCALE` values are `en`, `es`, `fr`, `de`, `zh-CN`, `ar`, `ru`, `pt`, `hi` and `ur`.
 
 Advanced deployments may still define different `ADMIN_DOMAIN` and `VPN_DOMAIN` values, and may provide an optional `LETSENCRYPT_EMAIL`. Those variables are unnecessary for the normal single-domain installation.
+
+`NOXROUTE_IMAGE_REGISTRY` defaults to `ghcr.io/drslid` and
+`NOXROUTE_IMAGE_TAG` defaults to `main`. Set
+`NOXROUTE_INSTALL_MODE=source` only for an intentional local build. Source mode
+uses the checked-out Dockerfiles, creates build swap on undersized hosts and
+requires at least 4 GiB free disk; image mode never silently falls back to it.
 
 Do not save real deployment values in a committed script, shell history, CI log or public issue.
 
@@ -81,9 +110,9 @@ The installer:
 7. updates DuckDNS and waits for DNS convergence;
 8. creates application secrets with mode `0600`;
 9. creates persistent directories under `/opt/noxrouteneo`;
-10. adds build swap on a very small VPS when required;
+10. pulls the versioned multi-architecture application images from GHCR;
 11. configures automatic CPU/RAM gateway sizing and a conservative bandwidth estimate;
-12. builds and starts PostgreSQL, Next.js, Caddy, the Runtime Agent and Traffic Gateway;
+12. starts PostgreSQL, Next.js, Caddy, the Runtime Agent and Traffic Gateway without building on the VPS;
 13. runs Drizzle migrations;
 14. creates and locks the initial owner bootstrap;
 15. stores the DuckDNS token encrypted;

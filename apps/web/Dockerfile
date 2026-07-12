@@ -35,6 +35,10 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
 FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS runner
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/drslid/NoxRouteNeo" \
+  org.opencontainers.image.description="NoxRouteNeo administration and user web application" \
+  org.opencontainers.image.licenses="MIT"
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000

@@ -1,5 +1,9 @@
 FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df
 
+LABEL org.opencontainers.image.source="https://github.com/drslid/NoxRouteNeo" \
+  org.opencontainers.image.description="NoxRouteNeo host firewall security agent" \
+  org.opencontainers.image.licenses="MIT"
+
 RUN apk add --no-cache nftables
 
 WORKDIR /app

@@ -46,18 +46,45 @@ validate_inputs
 assert_equal "shared.duckdns.org" "${ADMIN_DOMAIN}" "validated shared admin domain"
 assert_equal "shared.duckdns.org" "${VPN_DOMAIN}" "validated shared VPN domain"
 
-if disk_error="$(validate_available_disk 3145728 2>&1)"; then
-  printf 'FAIL: host validation accepted less than 4 GiB free disk\n' >&2
+if disk_error="$(validate_available_disk 1048576 image 2>&1)"; then
+  printf 'FAIL: image installation accepted less than 2 GiB free disk\n' >&2
   exit 1
 fi
 case "${disk_error}" in
-  *"3072 MiB is available"*) ;;
+  *"1024 MiB is available"*) ;;
   *)
     printf 'FAIL: low-disk error does not report detected free space\n' >&2
     exit 1
     ;;
 esac
 
-validate_available_disk 4194304
+validate_available_disk 2097152 image
+
+if disk_error="$(validate_available_disk 3145728 source 2>&1)"; then
+  printf 'FAIL: source installation accepted less than 4 GiB free disk\n' >&2
+  exit 1
+fi
+case "${disk_error}" in
+  *"3072 MiB is available"*) ;;
+  *)
+    printf 'FAIL: source-build disk error does not report detected free space\n' >&2
+    exit 1
+    ;;
+esac
+
+validate_available_disk 4194304 source
+
+INSTALL_MODE=image
+IMAGE_REGISTRY=ghcr.io/drslid
+IMAGE_TAG=main
+validate_install_strategy
+assert_equal "image" "${NOXROUTE_INSTALL_MODE}" "image install mode"
+assert_equal "ghcr.io/drslid" "${NOXROUTE_IMAGE_REGISTRY}" "image registry"
+assert_equal "main" "${NOXROUTE_IMAGE_TAG}" "image tag"
+
+if (INSTALL_MODE=automatic; validate_install_strategy >/dev/null 2>&1); then
+  printf 'FAIL: invalid installation mode was accepted\n' >&2
+  exit 1
+fi
 
 printf 'Installer tests passed.\n'

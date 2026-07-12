@@ -2,6 +2,10 @@ FROM ghcr.io/xtls/xray-core:26.6.27@sha256:c98160906f3fe1d9d16e950c2a7997dc0c542
 
 FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df
 
+LABEL org.opencontainers.image.source="https://github.com/drslid/NoxRouteNeo" \
+  org.opencontainers.image.description="NoxRouteNeo Xray runtime and control plane agent" \
+  org.opencontainers.image.licenses="MIT"
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 

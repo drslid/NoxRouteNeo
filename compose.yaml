@@ -42,6 +42,7 @@ services:
       - data
 
   web:
+    image: ${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}/noxrouteneo-web:${NOXROUTE_IMAGE_TAG:-main}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -119,6 +120,7 @@ services:
       - edge
 
   traffic-gateway:
+    image: ${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}/noxrouteneo-traffic-gateway:${NOXROUTE_IMAGE_TAG:-main}
     build:
       context: .
       dockerfile: services/traffic-gateway/Dockerfile
@@ -160,6 +162,7 @@ services:
       - traffic
 
   security-agent:
+    image: ${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}/noxrouteneo-security-agent:${NOXROUTE_IMAGE_TAG:-main}
     build:
       context: .
       dockerfile: services/security-agent/Dockerfile
@@ -188,6 +191,7 @@ services:
         max-file: "2"
 
   runtime:
+    image: ${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}/noxrouteneo-runtime:${NOXROUTE_IMAGE_TAG:-main}
     build:
       context: .
       dockerfile: services/runtime/Dockerfile

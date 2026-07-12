@@ -7,6 +7,22 @@ GO_IMAGE="golang:1.25-alpine@sha256:56961d79ea8129efddcc0b8643fd8a5416b4e6228cfd
 bash "${ROOT_DIR}/scripts/test-bootstrap.sh"
 bash "${ROOT_DIR}/scripts/test-install.sh"
 
+compose_images="$(env \
+  POSTGRES_PASSWORD=test \
+  BETTER_AUTH_SECRET=abcdefghijklmnopqrstuvwxyz123456 \
+  APP_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+  SETUP_TOKEN=test \
+  TRAFFIC_GATEWAY_TOKEN=test \
+  ADMIN_URL=https://example.duckdns.org:8443 \
+  ADMIN_DOMAIN=example.duckdns.org \
+  VPN_DOMAIN=example.duckdns.org \
+  docker compose -f "${ROOT_DIR}/compose.yaml" config --images)"
+
+for image in web runtime traffic-gateway security-agent; do
+  grep -Fxq "ghcr.io/drslid/noxrouteneo-${image}:main" <<<"${compose_images}" \
+    || { printf 'Missing default GHCR image for %s.\n' "${image}" >&2; exit 1; }
+done
+
 docker run --rm \
   --ulimit nofile=65536:65536 \
   -v "${ROOT_DIR}/services/traffic-gateway:/src" \

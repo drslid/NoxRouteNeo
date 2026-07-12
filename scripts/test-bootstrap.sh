@@ -11,6 +11,24 @@ fail() {
   exit 1
 }
 
+[ "$(default_image_tag_for_ref main)" = "main" ] \
+  || fail "main did not resolve to the main image tag"
+[ "$(default_image_tag_for_ref v1.2.3)" = "1.2.3" ] \
+  || fail "release ref did not resolve to its semantic image tag"
+[ "$(default_image_tag_for_ref 0123456789abcdef)" = "sha-0123456" ] \
+  || fail "commit ref did not resolve to its immutable image tag"
+if default_image_tag_for_ref feature/test >/dev/null 2>&1; then
+  fail "an unpublished branch inferred an image tag"
+fi
+
+INSTALL_MODE=image
+IMAGE_REGISTRY=ghcr.io/drslid
+IMAGE_TAG=""
+REF=main
+configure_install_strategy
+[ "${NOXROUTE_IMAGE_TAG}" = "main" ] \
+  || fail "bootstrap did not export the main image tag"
+
 test_root="$(mktemp -d)"
 trap 'rm -rf "${test_root}"' EXIT
 

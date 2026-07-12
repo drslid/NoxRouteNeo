@@ -13,6 +13,10 @@ RUN CGO_ENABLED=0 go test ./... \
 
 FROM scratch
 
+LABEL org.opencontainers.image.source="https://github.com/drslid/NoxRouteNeo" \
+  org.opencontainers.image.description="NoxRouteNeo traffic admission and bandwidth gateway" \
+  org.opencontainers.image.licenses="MIT"
+
 COPY --from=builder /out/traffic-gateway /traffic-gateway
 
 USER 10002:10002

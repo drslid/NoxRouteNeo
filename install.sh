@@ -6,6 +6,9 @@ REF="${NOXROUTE_REF:-main}"
 APP_ROOT="${NOXROUTE_ROOT:-/opt/noxrouteneo}"
 SOURCE_DIR="${APP_ROOT}/source"
 INSTALL_MARKER="${APP_ROOT}/.install-complete"
+INSTALL_MODE="${NOXROUTE_INSTALL_MODE:-image}"
+IMAGE_REGISTRY="${NOXROUTE_IMAGE_REGISTRY:-ghcr.io/drslid}"
+IMAGE_TAG="${NOXROUTE_IMAGE_TAG:-}"
 
 log() {
   printf '[noxrouteneo] %s\n' "$*"
@@ -31,6 +34,38 @@ require_supported_host() {
     amd64|arm64) ;;
     *) die "Only amd64 and arm64 VPS architectures are supported." ;;
   esac
+}
+
+default_image_tag_for_ref() {
+  local ref="$1"
+  case "${ref}" in
+    main) printf 'main' ;;
+    v[0-9]*) printf '%s' "${ref#v}" ;;
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+      printf 'sha-%s' "${ref:0:7}"
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+configure_install_strategy() {
+  case "${INSTALL_MODE}" in
+    image|source) ;;
+    *) die "NOXROUTE_INSTALL_MODE must be 'image' or 'source'." ;;
+  esac
+
+  if [ -z "${IMAGE_TAG}" ]; then
+    if ! IMAGE_TAG="$(default_image_tag_for_ref "${REF}")"; then
+      if [ "${INSTALL_MODE}" = "image" ]; then
+        die "No published image tag can be inferred from NOXROUTE_REF='${REF}'. Set NOXROUTE_IMAGE_TAG or use NOXROUTE_INSTALL_MODE=source."
+      fi
+      IMAGE_TAG="main"
+    fi
+  fi
+
+  export NOXROUTE_INSTALL_MODE="${INSTALL_MODE}"
+  export NOXROUTE_IMAGE_REGISTRY="${IMAGE_REGISTRY}"
+  export NOXROUTE_IMAGE_TAG="${IMAGE_TAG}"
 }
 
 install_bootstrap_dependencies() {
@@ -66,7 +101,7 @@ reset_incomplete_installation() {
   fi
   while read -r image_repository image_id; do
     case "${image_repository}" in
-      noxrouteneo-*|caddy|postgres)
+      noxrouteneo-*|*/noxrouteneo-*|caddy|postgres)
         docker image rm "${image_id}" >/dev/null 2>&1 || true
         ;;
     esac
@@ -114,6 +149,11 @@ run_installer() {
   [ -x "${installer}" ] || die "The downloaded installer is missing or not executable."
 
   log "Source revision: $(git -C "${SOURCE_DIR}" rev-parse --short HEAD)"
+  if [ "${INSTALL_MODE}" = "image" ]; then
+    log "Container release: ${IMAGE_REGISTRY}/noxrouteneo-*:${IMAGE_TAG}"
+  else
+    log "Container release: local source build"
+  fi
   if [ "${NOXROUTE_NONINTERACTIVE:-0}" = "1" ]; then
     exec env NOXROUTE_ROOT="${APP_ROOT}" "${installer}"
   fi
@@ -123,6 +163,7 @@ run_installer() {
 
 main() {
   require_supported_host
+  configure_install_strategy
   install_bootstrap_dependencies
   checkout_source
   run_installer

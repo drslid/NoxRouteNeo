@@ -80,6 +80,18 @@ remove_project_networks() {
 }
 
 remove_images() {
+  local compose_file env_file images
+  compose_file="${SRC_DIR}/compose.yaml"
+  env_file="${SRC_DIR}/.env"
+  images=""
+  if [ -f "${compose_file}" ] && [ -f "${env_file}" ]; then
+    images="$(${SUDO} docker compose --env-file "${env_file}" -f "${compose_file}" \
+      config --images 2>/dev/null | grep -E '(^|/)noxrouteneo-' || true)"
+  fi
+  if [ -n "${images}" ]; then
+    # shellcheck disable=SC2086
+    ${SUDO} docker image rm -f ${images} 2>/dev/null || true
+  fi
   ${SUDO} docker image rm -f noxrouteneo-web:latest noxrouteneo-runtime:latest \
     noxrouteneo-traffic-gateway:latest noxrouteneo-security-agent:latest \
     2>/dev/null || true

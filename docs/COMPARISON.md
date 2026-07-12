@@ -36,12 +36,12 @@ Its credible position is narrower: a guided, single-VPS appliance with separate 
 
 ## Improvement priorities learned from the alternatives
 
-1. Publish signed, multi-architecture GHCR images so installation does not compile Next.js on the VPS.
+1. Add keyless image signing and vulnerability scanning to the published GHCR release pipeline.
 2. Add tested one-click marketplace images while preserving the provider-independent installer.
 3. Validate INCY Desktop end to end and design a revocable generic desktop mode for v2rayN/Throne without pretending it provides hardware attestation.
 4. Add automated backup, restore and upgrade rollback checks before calling the project stable.
 5. Publish reproducible throughput, flow and memory benchmarks for each recommended VPS class.
-6. Add release signing, an SBOM, image scanning and documented dependency/update policy.
+6. Document the dependency/update policy and verify release rollback from real VPS snapshots.
 7. Keep multi-node orchestration out of the default product; reconsider it only as an optional future edition.
 
 ## Implemented lessons
@@ -49,6 +49,7 @@ Its credible position is narrower: a guided, single-VPS appliance with separate 
 - Routine account and device credential changes use Xray `HandlerService` and `RoutingService`; a validated full restart remains the recovery path if an API operation fails.
 - The admin can validate a REALITY target before saving it and run a real temporary-client XHTTP tunnel test without exposing a device UUID.
 - INCY subscriptions can be handed to the official client through its documented one-click deep link while QR and copy/paste remain available.
+- Versioned GHCR images support `amd64` and `arm64`, include build provenance and an SBOM, and remove application compilation from the normal VPS installation path.
 
 ## Selection guide
 
