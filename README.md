@@ -157,11 +157,15 @@ The normal installer downloads prebuilt multi-architecture images from GHCR, so 
 
 Before running the command, create one DuckDNS subdomain, copy its token, and open TCP ports `80`, `443` and `8443` in the VPS provider firewall. Provider firewalls cannot be changed safely by a provider-independent installer.
 
-On a fresh Ubuntu or Debian VPS, copy and paste this single command:
+On a fresh Ubuntu or Debian VPS, copy and paste this single command. It installs the pinned `v1.0.0-alpha.1` release:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/main/install.sh -o /tmp/noxrouteneo-install.sh && sudo bash /tmp/noxrouteneo-install.sh
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.1/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.1 bash /tmp/noxrouteneo-install.sh
 ```
+
+This is an image-based installation. The script downloads a shallow project checkout for its Compose definition and management scripts, installs Docker when required, then pulls the matching public GHCR images. It does not compile the application on the VPS and does not require a GitHub or GHCR login.
+
+NoxRouteNeo is a multi-container stack, not one standalone `docker run` image. The installer coordinates the four NoxRouteNeo images together with PostgreSQL and Caddy, including networks, persistent volumes, secrets, HTTPS and startup order.
 
 The installer asks only for:
 
@@ -181,7 +185,7 @@ The installer pulls four public OCI images from `ghcr.io/drslid`: `noxrouteneo-w
 
 | Tag | Meaning |
 | --- | --- |
-| `main` | Latest validated commit on the default branch; used by the alpha one-command installer |
+| `main` | Latest validated development commit; not recommended for a normal installation |
 | `sha-<commit>` | Commit-addressed image set for one exact Git revision |
 | `<semver>` | Versioned release generated from a SemVer Git tag such as `v1.0.0-alpha.1` |
 | `latest` | Most recent stable SemVer release; prereleases never move this tag |
@@ -190,7 +194,7 @@ GitHub Actions publishes build provenance and an SBOM with every image. Compose 
 
 Use the manifest `sha256` digest, rather than any tag, when cryptographic immutability is required.
 
-The current pinned prerelease image set is `1.0.0-alpha.1`.
+The current pinned prerelease image set used by the README command is `1.0.0-alpha.1`.
 
 ### First sign-in
 
