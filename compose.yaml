@@ -4,6 +4,18 @@ services:
   db:
     image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-30}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-32MB}
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-1MB}
+      - -c
+      - maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-16MB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-256MB}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-noxrouteneo}
       POSTGRES_USER: ${POSTGRES_USER:-noxroute}
@@ -12,7 +24,7 @@ services:
       - ${NOXROUTE_ROOT:-/opt/noxrouteneo}/data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 30
     security_opt:
@@ -50,6 +62,7 @@ services:
       NOXROUTE_VPN_DOMAIN: ${VPN_DOMAIN:?VPN_DOMAIN is required}
       RUNTIME_INTERNAL_URL: http://runtime:8081
       APP_LOCALE: ${APP_LOCALE:-en}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-5}
       NODE_OPTIONS: --max-old-space-size=384
     ports:
       - "127.0.0.1:${WEB_LOOPBACK_PORT:-3000}:3000"
@@ -200,7 +213,10 @@ services:
       TRAFFIC_GATEWAY_URL: http://traffic-gateway:8080
       TRAFFIC_GATEWAY_SOCKS_HOST: traffic-gateway
       TRAFFIC_GATEWAY_SOCKS_PORT: "1080"
-      RUNTIME_POLL_SECONDS: "2"
+      RUNTIME_POLL_SECONDS: ${RUNTIME_POLL_SECONDS:-5}
+      RUNTIME_STATE_HEARTBEAT_SECONDS: ${RUNTIME_STATE_HEARTBEAT_SECONDS:-15}
+      DATABASE_POOL_MIN_SIZE: ${RUNTIME_DATABASE_POOL_MIN_SIZE:-1}
+      DATABASE_POOL_MAX_SIZE: ${RUNTIME_DATABASE_POOL_MAX_SIZE:-3}
       XRAY_LISTEN_PORT: "10443"
       SECURITY_POLICY_PATH: /security/policy.json
       SECURITY_STATUS_PATH: /security/status.json

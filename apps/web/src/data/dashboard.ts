@@ -87,7 +87,7 @@ export async function getAdminDashboard() {
       users: Number(accessSummary?.total ?? 0),
       activeUsers: Number(accessSummary?.active ?? 0),
       activeConnections: Number(accessSummary?.connections ?? 0),
-      usedBytes: BigInt(accessSummary?.usedBytes ?? "0"),
+      usedBytes: accessSummary?.usedBytes ?? "0",
       devices: Number(deviceSummary?.total ?? 0),
       failedCommands: Number(failedCommands?.total ?? 0),
     },

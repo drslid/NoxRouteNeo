@@ -28,10 +28,12 @@
 
 - [What NoxRouteNeo is](#what-noxrouteneo-is)
 - [Features](#features)
+- [Why choose NoxRouteNeo](#why-choose-noxrouteneo)
 - [Architecture](#architecture)
 - [Requirements](#requirements)
 - [One-command installation](#one-command-installation)
 - [Roles and portals](#roles-and-portals)
+- [Desktop clients](#desktop-clients)
 - [Connect a device with INCY](#connect-a-device-with-incy)
 - [Connection profiles](#connection-profiles)
 - [XHTTP and REALITY](#xhttp-and-reality)
@@ -81,6 +83,22 @@ It is designed for people who want a small personal VPN server without operating
 - DuckDNS updates and Let's Encrypt certificate issuance during installation.
 - English, Spanish, French, German, Simplified Chinese, Arabic, Russian, Portuguese, Hindi and Urdu.
 - Right-to-left layout support for Arabic and Urdu.
+
+## Why choose NoxRouteNeo
+
+NoxRouteNeo does not try to beat established panels on protocol count. It targets a narrower workflow: install one understandable appliance on one VPS, create local users, give each device a revocable credential, and operate the service from separate admin and user portals.
+
+| Priority                 | NoxRouteNeo approach                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| Simple self-hosting      | One guided Ubuntu/Debian installer, one Docker Compose stack and DuckDNS automation |
+| Predictable VPN standard | Only `VLESS + XHTTP + REALITY`, instead of exposing every Xray option               |
+| End-user workflow        | Dedicated user portal, per-device QR/subscription, usage and device revocation      |
+| Local controls           | Quota, expiry, device count, TCP speed policy and adaptive flow capacity            |
+| Operational visibility   | Live throughput, Xray resources, gateway state, security events and audit history   |
+| Reduced data collection  | No browsing destinations, requested domains or URL history                          |
+| Isolation                | Private database/control networks and a narrowly scoped nftables security agent     |
+
+This focus is the differentiator, not maturity. [3x-ui](https://github.com/MHSanaei/3x-ui) has a much larger community and broader protocol support; [Remnawave](https://github.com/remnawave/panel) is a stronger fit for multi-node management; command-line installers are lighter for experienced operators. NoxRouteNeo is the better fit only when the desired product is a small single-VPS service with a guided admin/user experience. See the [detailed comparison](docs/COMPARISON.md).
 
 ## Architecture
 
@@ -178,18 +196,31 @@ Web sessions expire after one hour. Administrators cannot promote other administ
 
 `Active sessions` in the Security page means active web sign-ins, not VPN tunnels. Their public source IP addresses link to a KeyCDN geolocation lookup. Per-device VPN transfer, connection time and sampled active connections are shown in `Activity`; NoxRouteNeo does not enable destination-level Xray access logging just to recover VPN source IPs.
 
+## Desktop clients
+
+INCY Desktop is the primary Windows and Linux candidate because it uses Xray-core and is designed around the same subscription model as the mobile application. Its first desktop release was published on July 11, 2026, so NoxRouteNeo still treats HWID and tunnel compatibility as an end-to-end validation target rather than a mature guarantee.
+
+| Client                                                                     | Platforms                                 | NoxRouteNeo status                                                                                                |
+| -------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [INCY Desktop](https://github.com/INCY-DEV/incy-platforms/releases/latest) | Windows x64/ARM64, Linux x64/ARM64, macOS | Recommended first test; HWID compatibility with NoxRouteNeo still needs validation                                |
+| [v2rayN](https://github.com/2dust/v2rayN/releases/latest)                  | Windows, Linux, macOS                     | Mature Xray client with XHTTP support; generic subscriptions do not yet satisfy NoxRouteNeo HWID binding          |
+| [Throne](https://github.com/throneproj/Throne/releases/latest)             | Windows, Linux, macOS                     | Cross-platform Xray option; same HWID limitation until generic desktop credentials are added                      |
+| [E13VPN+](https://github.com/E13ctr0N/E13VPNplus/releases/latest)          | Windows                                   | Explicit XHTTP/REALITY support, but currently a small experimental project without automatic subscription refresh |
+
+For the first Windows test, download the x64 INCY Desktop asset, create a `Desktop` device in the user portal, enable HWID sharing in INCY, and import that device's subscription URL. A `428` response means HWID sharing was not sent; a `403` means the credential is already bound to another device.
+
 ## Connect a device with INCY
 
 Each phone receives a separate subscription credential. The subscription URL is the connection string; NoxRouteNeo does not expose the raw VLESS credential in the user portal because a raw VLESS string cannot be tied to physical hardware.
 
 Install INCY from an official source:
 
-| Platform                                | Link                                                                               |
-| --------------------------------------- | ---------------------------------------------------------------------------------- |
-| iPhone, iPad and Apple Silicon Mac      | [App Store](https://apps.apple.com/us/app/incy/id6756943388)                       |
-| Android                                 | [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy)        |
-| Windows, Linux and other desktop builds | [INCY downloads](https://github.com/INCY-DEV/incy-platforms)                       |
-| Help                                    | [Official website](https://incy.cc/) · [HWID guide](https://docs.incy.cc/en/hwid/) |
+| Platform                              | Link                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| iPhone, iPad and Apple Silicon Mac    | [App Store](https://apps.apple.com/us/app/incy/id6756943388)                        |
+| Android                               | [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy)         |
+| Windows x64/ARM64 and Linux x64/ARM64 | [INCY Desktop releases](https://github.com/INCY-DEV/incy-platforms/releases/latest) |
+| Help                                  | [Official website](https://incy.cc/) · [HWID guide](https://docs.incy.cc/en/hwid/)  |
 
 NoxRouteNeo is not affiliated with INCY. A complete walkthrough is available in the [INCY connection guide](docs/INCY.md).
 
@@ -301,6 +332,7 @@ Security reports should follow [SECURITY.md](SECURITY.md).
 
 - [Installation on Ubuntu and Debian](docs/INSTALLATION.md)
 - [Connect a device with INCY](docs/INCY.md)
+- [Desktop clients and project comparison](docs/COMPARISON.md)
 - [Local development](docs/DEVELOPMENT.md)
 - [VPS sizing and benchmarks](docs/SIZING.md)
 - [Security policy](SECURITY.md)

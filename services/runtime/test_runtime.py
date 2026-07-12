@@ -199,6 +199,42 @@ class TrafficGatewayRuntimeTests(unittest.TestCase):
             parameters[7:16], ("ready", 12, 4096, 2, 3, 4, 5, 6, True)
         )
 
+    def test_unchanged_runtime_state_waits_for_heartbeat(self) -> None:
+        agent = runtime.RuntimeAgent()
+        cursor = Mock()
+        cursor.__enter__ = Mock(return_value=cursor)
+        cursor.__exit__ = Mock(return_value=False)
+        connection = Mock()
+        connection.cursor.return_value = cursor
+
+        @contextmanager
+        def fake_db_connection():
+            yield connection
+
+        with patch.object(runtime, "db_connection", fake_db_connection):
+            self.assertTrue(agent.update_state("ready"))
+            self.assertFalse(agent.update_state("ready"))
+
+        self.assertEqual(cursor.execute.call_count, 1)
+
+    def test_telemetry_forces_runtime_state_persistence(self) -> None:
+        agent = runtime.RuntimeAgent()
+        cursor = Mock()
+        cursor.__enter__ = Mock(return_value=cursor)
+        cursor.__exit__ = Mock(return_value=False)
+        connection = Mock()
+        connection.cursor.return_value = cursor
+
+        @contextmanager
+        def fake_db_connection():
+            yield connection
+
+        with patch.object(runtime, "db_connection", fake_db_connection):
+            self.assertTrue(agent.update_state("ready"))
+            self.assertTrue(agent.update_state("ready", telemetry=True))
+
+        self.assertEqual(cursor.execute.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

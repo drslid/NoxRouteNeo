@@ -18,3 +18,21 @@ export async function getPortalData(userId: string) {
 
   return { access: access ?? null, devices: registeredDevices };
 }
+
+export async function getPortalDashboard(userId: string) {
+  const { access, devices: registeredDevices } = await getPortalData(userId);
+  return {
+    access: access
+      ? {
+          status: access.status,
+          usedBytes: String(access.usedBytes),
+          quotaBytes:
+            access.quotaBytes === null ? null : String(access.quotaBytes),
+          connectedSeconds: String(access.connectedSeconds),
+          activeConnections: access.activeConnections,
+          expiresAt: access.expiresAt?.toISOString() ?? null,
+        }
+      : null,
+    deviceCount: registeredDevices.length,
+  };
+}

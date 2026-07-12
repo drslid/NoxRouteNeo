@@ -15,14 +15,16 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import psutil
 import psycopg
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 
 
@@ -37,7 +39,15 @@ XRAY_BINARY = os.environ.get("XRAY_BINARY", "/usr/local/bin/xray")
 XRAY_CONFIG_PATH = Path(os.environ.get("XRAY_CONFIG_PATH", "/runtime/config.json"))
 XRAY_LISTEN_PORT = int(os.environ.get("XRAY_LISTEN_PORT", "10443"))
 XRAY_API_PORT = int(os.environ.get("XRAY_API_PORT", "10085"))
-POLL_SECONDS = max(1, int(os.environ.get("RUNTIME_POLL_SECONDS", "2")))
+POLL_SECONDS = max(1, int(os.environ.get("RUNTIME_POLL_SECONDS", "5")))
+STATE_HEARTBEAT_SECONDS = max(
+    POLL_SECONDS, int(os.environ.get("RUNTIME_STATE_HEARTBEAT_SECONDS", "15"))
+)
+DATABASE_POOL_MIN_SIZE = max(1, int(os.environ.get("DATABASE_POOL_MIN_SIZE", "1")))
+DATABASE_POOL_MAX_SIZE = max(
+    DATABASE_POOL_MIN_SIZE,
+    int(os.environ.get("DATABASE_POOL_MAX_SIZE", "3")),
+)
 SERVER_BANDWIDTH_SETTING = os.environ.get("SERVER_BANDWIDTH_MBIT", "auto").strip()
 CADDY_ADMIN_URL = os.environ.get("CADDY_ADMIN_URL", "http://caddy:2019")
 LETSENCRYPT_EMAIL = os.environ.get("LETSENCRYPT_EMAIL", "")
@@ -60,7 +70,7 @@ SECURITY_POLICY_PATH = Path(
 SECURITY_STATUS_PATH = Path(
     os.environ.get("SECURITY_STATUS_PATH", "/security/status.json")
 )
-RUNTIME_VERSION = "1.3.0"
+RUNTIME_VERSION = "1.4.0"
 
 _encoded_key = os.environ.get("APP_ENCRYPTION_KEY", "")
 try:
@@ -71,13 +81,46 @@ if len(ENCRYPTION_KEY) != 32:
     raise RuntimeError("APP_ENCRYPTION_KEY must decode to exactly 32 bytes")
 
 
-def db_connection() -> psycopg.Connection[dict[str, Any]]:
-    return psycopg.connect(
-        DATABASE_URL,
-        row_factory=dict_row,
-        connect_timeout=10,
-        application_name="noxroute-runtime",
-    )
+_DATABASE_POOL = ConnectionPool(
+    conninfo=DATABASE_URL,
+    min_size=DATABASE_POOL_MIN_SIZE,
+    max_size=DATABASE_POOL_MAX_SIZE,
+    timeout=10,
+    kwargs={
+        "row_factory": dict_row,
+        "connect_timeout": 10,
+        "application_name": "noxroute-runtime",
+    },
+    open=False,
+)
+_DATABASE_POOL_LOCK = threading.Lock()
+_DATABASE_POOL_OPEN = False
+
+
+def open_database_pool() -> None:
+    global _DATABASE_POOL_OPEN
+    if _DATABASE_POOL_OPEN:
+        return
+    with _DATABASE_POOL_LOCK:
+        if _DATABASE_POOL_OPEN:
+            return
+        _DATABASE_POOL.open(wait=True)
+        _DATABASE_POOL_OPEN = True
+
+
+@contextmanager
+def db_connection() -> Iterator[psycopg.Connection[dict[str, Any]]]:
+    open_database_pool()
+    with _DATABASE_POOL.connection() as connection:
+        yield connection
+
+
+def close_database_pool() -> None:
+    global _DATABASE_POOL_OPEN
+    if not _DATABASE_POOL_OPEN:
+        return
+    _DATABASE_POOL.close()
+    _DATABASE_POOL_OPEN = False
 
 
 @dataclass(frozen=True)
@@ -319,10 +362,13 @@ class RuntimeAgent:
         self.traffic_gateway = TrafficGatewayClient()
         self.config_fingerprint = ""
         self.config_revision = 0
+        self.reality_private_key = ""
         self.last_telemetry = 0.0
         self.last_duckdns = 0.0
         self.last_caddy_reload = 0.0
         self.last_cleanup = 0.0
+        self.last_state_write = 0.0
+        self.last_state_signature: tuple[Any, ...] | None = None
         self.health_lock = threading.Lock()
         self.health: dict[str, Any] = {
             "status": "starting",
@@ -370,11 +416,27 @@ class RuntimeAgent:
         error: str | None = None,
         synced: bool = False,
         telemetry: bool = False,
-    ) -> None:
+    ) -> bool:
         running = bool(self.xray and self.xray.poll() is None)
         health = self.health_payload()
         gateway_status = str(health.get("traffic_gateway", "starting"))
         gateway_seen = gateway_status in {"ready", "standby"}
+        self.set_health(status=status, xray_running=running, last_error=error)
+        state_signature = (
+            status,
+            error,
+            running,
+            self.config_revision,
+            gateway_status,
+        )
+        now = time.monotonic()
+        if (
+            not synced
+            and not telemetry
+            and state_signature == self.last_state_signature
+            and now - self.last_state_write < STATE_HEARTBEAT_SECONDS
+        ):
+            return False
         with db_connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -440,7 +502,9 @@ class RuntimeAgent:
                     gateway_seen,
                 ),
             )
-        self.set_health(status=status, xray_running=running, last_error=error)
+        self.last_state_signature = state_signature
+        self.last_state_write = now
+        return True
 
     @staticmethod
     def cleanup_expired_data() -> dict[str, int]:
@@ -469,6 +533,10 @@ class RuntimeAgent:
             "expired_sessions": (
                 "delete from session where expires_at < now() - interval '1 day'"
             ),
+            "metric_samples": (
+                "delete from instance_metric_samples "
+                "where sampled_at < now() - interval '7 days'"
+            ),
         }
         with db_connection() as connection, connection.cursor() as cursor:
             for name, statement in statements.items():
@@ -494,6 +562,8 @@ class RuntimeAgent:
         return private_match.group(1), public_match.group(1)
 
     def ensure_reality_key(self) -> str:
+        if self.reality_private_key:
+            return self.reality_private_key
         with db_connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -510,7 +580,10 @@ class RuntimeAgent:
             )
             settings = cursor.fetchone()
             if secret and settings and settings["reality_public_key"]:
-                return decrypt_secret(secret["ciphertext"], secret["nonce"])
+                self.reality_private_key = decrypt_secret(
+                    secret["ciphertext"], secret["nonce"]
+                )
+                return self.reality_private_key
 
             private_key, public_key = self.generate_reality_keypair()
             ciphertext, nonce = encrypt_secret(private_key)
@@ -531,7 +604,8 @@ class RuntimeAgent:
                 (public_key,),
             )
             LOGGER.info("Generated a new REALITY keypair")
-            return private_key
+            self.reality_private_key = private_key
+            return self.reality_private_key
 
     def enforce_limits(self) -> bool:
         with db_connection() as connection, connection.cursor() as cursor:
@@ -1083,6 +1157,7 @@ class RuntimeAgent:
                 where active_connections <> 0
                 """
             )
+            device_updates: list[tuple[int, int, int, int, int, int, str]] = []
             for device_id, item in by_device.items():
                 uplink = item["uplink"]
                 downlink = item["downlink"]
@@ -1090,7 +1165,19 @@ class RuntimeAgent:
                 total_uplink += uplink
                 total_downlink += downlink
                 total_online += online
-                cursor.execute(
+                device_updates.append(
+                    (
+                        uplink + downlink,
+                        interval if online > 0 else 0,
+                        online,
+                        uplink,
+                        downlink,
+                        online,
+                        device_id,
+                    )
+                )
+            if device_updates:
+                cursor.executemany(
                     """
                     update devices
                     set used_bytes = used_bytes + %s,
@@ -1101,15 +1188,7 @@ class RuntimeAgent:
                         updated_at = now()
                     where id = %s
                     """,
-                    (
-                        uplink + downlink,
-                        interval if online > 0 else 0,
-                        online,
-                        uplink,
-                        downlink,
-                        online,
-                        device_id,
-                    ),
+                    device_updates,
                 )
             cursor.execute(
                 """
@@ -1128,6 +1207,12 @@ class RuntimeAgent:
                     group by vpn_access_id
                 ) totals
                 where v.id = totals.vpn_access_id
+                  and (v.used_bytes, v.connected_seconds, v.active_connections)
+                      is distinct from (
+                          totals.used_bytes,
+                          totals.connected_seconds,
+                          totals.active_connections
+                      )
                 """
             )
             cpu_basis_points = 0
@@ -1152,9 +1237,6 @@ class RuntimeAgent:
                     cpu_basis_points,
                     memory_bytes,
                 ),
-            )
-            cursor.execute(
-                "delete from instance_metric_samples where sampled_at < now() - interval '7 days'"
             )
         return self.enforce_limits()
 
@@ -1253,7 +1335,7 @@ https://{domain}:{port} {{
                     self.last_cleanup = now
                     if any(deleted.values()):
                         LOGGER.info("Retention cleanup removed rows: %s", deleted)
-                limits_changed = self.enforce_limits()
+                limits_changed = False
                 commands = self.claim_commands()
                 model = self.load_model()
                 self.write_security_policy(model)
@@ -1426,6 +1508,7 @@ def main() -> None:
     finally:
         health_server.shutdown()
         agent.stop()
+        close_database_pool()
 
 
 if __name__ == "__main__":

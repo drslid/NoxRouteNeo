@@ -9,6 +9,15 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
+function poolSize() {
+  const fallback = process.env.NODE_ENV === "production" ? 5 : 3;
+  const configured = Number.parseInt(process.env.DATABASE_POOL_MAX ?? "", 10);
+  if (!Number.isFinite(configured)) {
+    return fallback;
+  }
+  return Math.min(20, Math.max(1, configured));
+}
+
 const globalDatabase = globalThis as unknown as {
   noxrouteSql?: ReturnType<typeof postgres>;
 };
@@ -16,7 +25,7 @@ const globalDatabase = globalThis as unknown as {
 export const sql =
   globalDatabase.noxrouteSql ??
   postgres(databaseUrl, {
-    max: process.env.NODE_ENV === "production" ? 10 : 3,
+    max: poolSize(),
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: false,

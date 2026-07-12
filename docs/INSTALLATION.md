@@ -103,7 +103,7 @@ The final output contains the admin URL, VPN endpoint, owner username and one-ti
 5. Review the language and default user limits in `Settings`.
 6. Create a VPN user.
 7. Sign in as that user and register one device.
-8. Install INCY from the [App Store](https://apps.apple.com/us/app/incy/id6756943388), [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) or the [official desktop downloads](https://github.com/INCY-DEV/incy-platforms).
+8. Install INCY from the [App Store](https://apps.apple.com/us/app/incy/id6756943388), [Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) or the [official Desktop releases](https://github.com/INCY-DEV/incy-platforms/releases/latest).
 9. Enable HWID sharing in INCY, then import the subscription QR code or URL.
 
 The admin `Settings` page and user `Connection` page contain these official links. Follow the complete [INCY connection guide](INCY.md) for device binding, latency and troubleshooting.

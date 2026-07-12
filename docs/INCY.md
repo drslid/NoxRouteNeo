@@ -6,12 +6,12 @@ NoxRouteNeo is not affiliated with INCY. Use only the official links below.
 
 ## Official downloads
 
-| Platform                                | Official resource                                                                         |
-| --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| iPhone, iPad and Apple Silicon Mac      | [Download from the App Store](https://apps.apple.com/us/app/incy/id6756943388)            |
-| Android phone or tablet                 | [Download from Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) |
-| Windows, Linux and other desktop builds | [INCY desktop downloads](https://github.com/INCY-DEV/incy-platforms)                      |
-| Product website                         | [incy.cc](https://incy.cc/)                                                               |
+| Platform                              | Official resource                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- |
+| iPhone, iPad and Apple Silicon Mac    | [Download from the App Store](https://apps.apple.com/us/app/incy/id6756943388)            |
+| Android phone or tablet               | [Download from Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) |
+| Windows x64/ARM64 and Linux x64/ARM64 | [INCY Desktop releases](https://github.com/INCY-DEV/incy-platforms/releases/latest)       |
+| Product website                       | [incy.cc](https://incy.cc/)                                                               |
 
 ## Register and connect a device
 
@@ -25,6 +25,8 @@ NoxRouteNeo is not affiliated with INCY. Use only the official links below.
 8. Select the imported endpoint and start the VPN.
 
 Create one NoxRouteNeo device for each phone, tablet or computer. Do not reuse a QR code between devices.
+
+INCY Desktop `3.3.1` was first published on July 11, 2026. Windows and Linux support must therefore be validated with the current NoxRouteNeo subscription before it is treated as mature. On Windows, start with the x64 release unless the computer uses Windows on ARM.
 
 ## Device binding
 
