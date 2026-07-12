@@ -1,6 +1,5 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   updateInstanceSettingsSchema,
   type UpdateInstanceSettingsInput,
@@ -8,7 +7,7 @@ import {
 import { Button, Checkbox, Input, Select } from "@noxroute/ui";
 import { LoaderCircle, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { type FieldPath, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/client";
@@ -29,14 +28,29 @@ export function InstanceSettingsForm({
 }) {
   const router = useRouter();
   const { t } = useI18n();
-  const settingsResolver = zodResolver(updateInstanceSettingsSchema);
   const form = useForm<UpdateInstanceSettingsInput>({
-    resolver: (values, context, options) =>
-      settingsResolver(normalizeSettingsValues(values), context, options),
     defaultValues: initialValues,
   });
 
-  async function submit(values: UpdateInstanceSettingsInput) {
+  async function submit(rawValues: UpdateInstanceSettingsInput) {
+    form.clearErrors();
+    const result = updateInstanceSettingsSchema.safeParse(
+      normalizeSettingsValues(rawValues),
+    );
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string") {
+          form.setError(field as FieldPath<UpdateInstanceSettingsInput>, {
+            type: "validate",
+            message: issue.message,
+          });
+        }
+      }
+      return;
+    }
+
+    const values = result.data;
     const response = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
