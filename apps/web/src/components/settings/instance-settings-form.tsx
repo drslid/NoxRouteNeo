@@ -146,10 +146,11 @@ export function InstanceSettingsForm({
           <Field
             label={t("settings.availableBandwidth")}
             hint={t("settings.bandwidthEstimate")}
+            error={form.formState.errors.serverBandwidthMbps?.message}
           >
             <Select
               {...form.register("serverBandwidthMbps", {
-                setValueAs: (value) => (value === "" ? null : Number(value)),
+                setValueAs: nullablePositiveNumber,
               })}
             >
               <option value="">
@@ -345,6 +346,11 @@ function requiredNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value);
 }
 
+function nullablePositiveNumber(value: unknown) {
+  const parsed = nullableNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
 function normalizeSettingsValues(values: UpdateInstanceSettingsInput) {
   return {
     ...values,
@@ -357,7 +363,7 @@ function normalizeSettingsValues(values: UpdateInstanceSettingsInput) {
     serverBandwidthLimitPercent: requiredNumber(
       values.serverBandwidthLimitPercent,
     ),
-    serverBandwidthMbps: nullableNumber(values.serverBandwidthMbps),
+    serverBandwidthMbps: nullablePositiveNumber(values.serverBandwidthMbps),
     telemetryIntervalSeconds: requiredNumber(values.telemetryIntervalSeconds),
   };
 }
