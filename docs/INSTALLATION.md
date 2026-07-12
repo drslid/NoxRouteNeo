@@ -65,8 +65,8 @@ tag to the bootstrap. The leading `v` is removed automatically when selecting
 the image tag:
 
 ```bash
-sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0/install.sh -o /tmp/noxrouteneo-install.sh
-sudo env NOXROUTE_REF=v1.0.0 bash /tmp/noxrouteneo-install.sh
+sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.1/install.sh -o /tmp/noxrouteneo-install.sh
+sudo env NOXROUTE_REF=v1.0.0-alpha.1 bash /tmp/noxrouteneo-install.sh
 ```
 
 ## Unattended installation

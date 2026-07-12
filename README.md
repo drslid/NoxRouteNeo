@@ -188,6 +188,8 @@ The installer pulls four public OCI images from `ghcr.io/drslid`: `noxrouteneo-w
 
 GitHub Actions publishes build provenance and an SBOM with every image. Compose keeps source build definitions for development, but production installation never falls back to compiling silently. Set `NOXROUTE_INSTALL_MODE=source` explicitly when a local source build is intended.
 
+The current pinned prerelease image set is `1.0.0-alpha.1`.
+
 ### First sign-in
 
 The final output contains:
