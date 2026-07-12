@@ -4,6 +4,8 @@ import base64
 import hashlib
 import hmac
 import os
+import json
+import tempfile
 import unittest
 from contextlib import contextmanager
 from unittest.mock import Mock, patch
@@ -43,6 +45,7 @@ def runtime_model(gateway_available: bool = True) -> dict[str, object]:
         ],
         "global_limit_mbps": 0,
         "gateway_available": gateway_available,
+        "blocked_source_ips": [],
     }
 
 
@@ -98,6 +101,28 @@ class TrafficGatewayRuntimeTests(unittest.TestCase):
         self.assertEqual(
             runtime.RuntimeAgent.fingerprint(runtime_model(True)),
             runtime.RuntimeAgent.fingerprint(runtime_model(False)),
+        )
+
+    def test_security_policy_contains_banned_addresses_and_public_ports(self) -> None:
+        model = runtime_model()
+        model["blocked_source_ips"] = ["203.0.113.8", "2001:db8::8"]
+        model["settings"].update({"vpn_port": 443, "admin_https_port": 8443})
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "policy.json")
+            with patch.object(runtime, "SECURITY_POLICY_PATH", runtime.Path(path)):
+                runtime.RuntimeAgent.write_security_policy(model)
+            with open(path, encoding="utf-8") as policy_file:
+                policy = json.load(policy_file)
+        self.assertEqual(policy["blocked_ips"], model["blocked_source_ips"])
+        self.assertEqual(policy["ports"], [80, 443, 8443])
+
+    def test_ban_changes_do_not_restart_xray(self) -> None:
+        first = runtime_model()
+        second = runtime_model()
+        second["blocked_source_ips"] = ["203.0.113.8"]
+        self.assertEqual(
+            runtime.RuntimeAgent.fingerprint(first),
+            runtime.RuntimeAgent.fingerprint(second),
         )
 
     def test_failure_bypasses_immediately_and_recovery_is_stable(self) -> None:

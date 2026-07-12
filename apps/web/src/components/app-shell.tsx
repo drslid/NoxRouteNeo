@@ -13,6 +13,7 @@ import {
   MonitorSmartphone,
   Settings,
   ShieldCheck,
+  ShieldAlert,
   Users,
   X,
   type LucideIcon,
@@ -36,6 +37,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "nav.activity", href: "/admin/activity", icon: Activity },
   { label: "nav.settings", href: "/admin/settings", icon: Settings },
   { label: "nav.security", href: "/admin/security", icon: ShieldCheck },
+  { label: "nav.threats", href: "/admin/threats", icon: ShieldAlert },
   { label: "nav.audit", href: "/admin/audit", icon: ListChecks },
 ];
 

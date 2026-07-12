@@ -10,7 +10,14 @@ import {
   CardTitle,
   cn,
 } from "@noxroute/ui";
-import { Check, Copy, KeyRound, LoaderCircle, Settings } from "lucide-react";
+import {
+  Check,
+  Copy,
+  KeyRound,
+  LoaderCircle,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -20,9 +27,17 @@ import { useI18n } from "@/i18n/client";
 import { platformMessageKey, profileMessageKey } from "@/i18n/labels";
 
 type ConnectionPayload = {
-  directUri: string;
   subscriptionUrl: string;
   profile: "fast" | "balanced" | "stealth";
+  binding: {
+    status: "bound" | "pending";
+    boundAt: string | null;
+    lastUsedAt: string | null;
+    platform: string | null;
+    model: string | null;
+    osVersion: string | null;
+    lastIpAddress: string | null;
+  };
 };
 
 export function ConnectionCard({
@@ -34,7 +49,6 @@ export function ConnectionCard({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(initialOpen);
-  const [mode, setMode] = useState<"subscription" | "direct">("subscription");
   const [copied, setCopied] = useState(false);
   const query = useQuery({
     queryKey: ["device-connection", device.id],
@@ -55,10 +69,7 @@ export function ConnectionCard({
       return payload;
     },
   });
-  const value =
-    mode === "subscription"
-      ? query.data?.subscriptionUrl
-      : query.data?.directUri;
+  const value = query.data?.subscriptionUrl;
 
   async function copy() {
     if (!value) return;
@@ -119,49 +130,52 @@ export function ConnectionCard({
               <div className="rounded-md border bg-white p-3">
                 <Image
                   className="h-auto w-full"
-                  src={`/api/portal/devices/${device.id}/qr?kind=${mode}`}
+                  src={`/api/portal/devices/${device.id}/qr`}
                   width={220}
                   height={220}
                   unoptimized
                   alt={t("connection.qrAlt", {
-                    mode: t(
-                      mode === "subscription"
-                        ? "connection.subscription"
-                        : "connection.direct",
-                    ),
+                    mode: t("connection.subscription"),
                     name: device.name,
                   })}
                 />
               </div>
               <div className="min-w-0">
-                <div className="inline-flex rounded-md border bg-muted p-1">
-                  {(["subscription", "direct"] as const).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className={cn(
-                        "h-8 rounded px-3 text-xs font-medium capitalize",
-                        mode === item && "bg-card shadow-sm",
-                      )}
-                      onClick={() => setMode(item)}
-                    >
-                      {t(
-                        item === "subscription"
-                          ? "connection.subscription"
-                          : "connection.direct",
-                      )}
-                    </button>
-                  ))}
+                <div
+                  className={cn(
+                    "flex items-start gap-3 rounded-md border p-3",
+                    query.data.binding.status === "bound"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                      : "border-amber-200 bg-amber-50 text-amber-950",
+                  )}
+                >
+                  <ShieldCheck
+                    className="mt-0.5 size-4 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <p className="text-xs font-semibold">
+                      {query.data.binding.status === "bound"
+                        ? t("connection.deviceBound")
+                        : t("connection.awaitingBinding")}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 opacity-80">
+                      {query.data.binding.status === "bound"
+                        ? t("connection.deviceBoundHelp", {
+                            device:
+                              query.data.binding.model ??
+                              query.data.binding.platform ??
+                              t("common.device"),
+                          })
+                        : t("connection.awaitingBindingHelp")}
+                    </p>
+                  </div>
                 </div>
                 <h3 className="mt-5 text-sm font-semibold">
-                  {mode === "subscription"
-                    ? t("connection.subscriptionUrl")
-                    : t("connection.directString")}
+                  {t("connection.subscriptionUrl")}
                 </h3>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {mode === "subscription"
-                    ? t("connection.subscriptionHelp")
-                    : t("connection.directHelp")}
+                  {t("connection.subscriptionHelp")}
                 </p>
                 <div className="mt-4 flex min-w-0 items-start gap-2 rounded-md border bg-muted/50 p-3">
                   <code

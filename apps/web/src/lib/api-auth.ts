@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 import { ZodError } from "zod";
 
 import { isAppRole } from "@noxroute/auth/permissions";
+import { activeIpBan, normalizeIpAddress } from "@/lib/network-security";
+import { requestAddress } from "@/lib/rate-limit";
 
 export class ApiError extends Error {
   constructor(
@@ -40,6 +42,10 @@ export async function requireApiSession(
   request: NextRequest,
   roles: readonly AppRole[],
 ) {
+  const ban = await activeIpBan(normalizeIpAddress(requestAddress(request)));
+  if (ban) {
+    throw new ApiError(403, "This IP address is blocked");
+  }
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     allowedOrigin(request);
   }
@@ -74,5 +80,8 @@ export function apiErrorResponse(error: unknown) {
 
   const message = error instanceof Error ? error.message : "Unexpected error";
   console.error("API request failed", { message });
-  return Response.json({ error: "The request could not be completed" }, { status: 500 });
+  return Response.json(
+    { error: "The request could not be completed" },
+    { status: 500 },
+  );
 }

@@ -26,3 +26,13 @@ docker run --rm \
   -v "${ROOT_DIR}/services/runtime/test_runtime.py:/tests/test_runtime.py:ro" \
   noxrouteneo-runtime:test \
   python -m unittest discover -s /tests -v
+
+docker build \
+  -f "${ROOT_DIR}/services/security-agent/Dockerfile" \
+  -t noxrouteneo-security-agent:test \
+  "${ROOT_DIR}" >/dev/null
+
+docker run --rm \
+  -v "${ROOT_DIR}/services/security-agent/test_agent.py:/tests/test_agent.py:ro" \
+  noxrouteneo-security-agent:test \
+  python -m unittest discover -s /tests -v

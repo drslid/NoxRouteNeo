@@ -14,14 +14,14 @@ The important unit is not registered users. The important unit is simultaneous V
 
 The AWS POC runs on a very small ARM VPS:
 
-| Resource | Current POC |
-| --- | --- |
-| CPU | 2 vCPU ARM Neoverse-N1 |
-| RAM | about 1 GB |
-| Swap | about 1.4 GB, created for the Next.js build |
-| Xray memory observed | about 10 MB idle, about 55 MB during traffic |
-| Xray CPU observed | about 25-30% during real mobile traffic bursts |
-| Stack memory headroom | tight but usable for POC |
+| Resource              | Current POC                                    |
+| --------------------- | ---------------------------------------------- |
+| CPU                   | 2 vCPU ARM Neoverse-N1                         |
+| RAM                   | about 1 GB                                     |
+| Swap                  | about 1.4 GB, created for the Next.js build    |
+| Xray memory observed  | about 10 MB idle, about 55 MB during traffic   |
+| Xray CPU observed     | about 25-30% during real mobile traffic bursts |
+| Stack memory headroom | tight but usable for POC                       |
 
 Docker `CPU %` is a live container metric. On multi-core hosts it can go above 100%; roughly, 100% means one full CPU core worth of work. So 25-30% on the POC means a visible but acceptable CPU burst on a very small 2 vCPU VPS.
 
@@ -29,28 +29,43 @@ Docker `CPU %` is a live container metric. On multi-core hosts it can go above 1
 
 Use this table for the first public documentation. It is intentionally conservative.
 
-| Scenario | Active mobile devices | Approx sustained VPN traffic | Recommended VPS |
-| --- | ---: | ---: | --- |
-| Test only | 1-2 | 1-20 Mbps | 1 vCPU / 1 GB RAM |
-| Small personal | 2-5 | 20-80 Mbps | 2 vCPU / 2 GB RAM |
-| Family / small group | 5-15 | 80-250 Mbps | 2-4 vCPU / 4 GB RAM |
-| Small community | 15-40 | 250-600 Mbps | 4 vCPU / 8 GB RAM |
-| Heavier usage | 40-100 | 600 Mbps-1.5 Gbps | 8 vCPU / 16 GB RAM |
-| More than 100 active devices | 1.5 Gbps+ | Benchmark first; split across multiple VPS |
+| Scenario                     | Active mobile devices |               Approx sustained VPN traffic | Recommended VPS     |
+| ---------------------------- | --------------------: | -----------------------------------------: | ------------------- |
+| Test only                    |                   1-2 |                                  1-20 Mbps | 1 vCPU / 1 GB RAM   |
+| Small personal               |                   2-5 |                                 20-80 Mbps | 2 vCPU / 2 GB RAM   |
+| Family / small group         |                  5-15 |                                80-250 Mbps | 2-4 vCPU / 4 GB RAM |
+| Small community              |                 15-40 |                               250-600 Mbps | 4 vCPU / 8 GB RAM   |
+| Heavier usage                |                40-100 |                          600 Mbps-1.5 Gbps | 8 vCPU / 16 GB RAM  |
+| More than 100 active devices |             1.5 Gbps+ | Benchmark first; split across multiple VPS |
 
 Registered users can be much higher than active devices. For example, 100 registered users with only 5-10 active at the same time can run on a small VPS. Ten users streaming/downloading at the same time can require more CPU and bandwidth than 100 mostly idle users.
+
+## Planning By Connection Profile
+
+These are conservative pre-benchmark estimates for ordinary mobile browsing at roughly 5-10 Mbps average per active device. They are not capacity guarantees. Simultaneous speed tests, streaming or large downloads require substantially more network and CPU headroom.
+
+| VPS size       | Adaptive profile | Flow ceiling | Fast active devices | Balanced active devices | Stealth active devices |
+| -------------- | ---------------- | -----------: | ------------------: | ----------------------: | ---------------------: |
+| 1 vCPU / 1 GB  | Small            |        2,048 |                 1-3 |                     1-2 |                    1-2 |
+| 2 vCPU / 1 GB  | Small            |        2,048 |                 2-5 |                     2-4 |                    1-3 |
+| 2 vCPU / 2 GB  | Standard         |        4,096 |                 3-8 |                     2-6 |                    2-5 |
+| 4 vCPU / 4 GB  | Performance      |        8,192 |                8-18 |                    5-15 |                   4-12 |
+| 4 vCPU / 8 GB  | Performance      |        8,192 |               18-45 |                   15-40 |                  12-30 |
+| 8 vCPU / 16 GB | High capacity    |       16,384 |              50-110 |                  40-100 |                  30-80 |
+
+The profile adjustment is deliberately modest: every profile still uses the same VLESS encryption and REALITY handshake. `Stealth` changes XHTTP request behavior and adds overhead; it is not a separate anonymity engine.
 
 ## User Count Rule Of Thumb
 
 For mobile-first usage:
 
-| Registered users | Expected active devices | Suggested starting VPS |
-| ---: | ---: | --- |
-| 1-5 | 1-2 | 1 vCPU / 1 GB RAM |
-| 5-20 | 2-5 | 2 vCPU / 2 GB RAM |
-| 20-50 | 5-15 | 2-4 vCPU / 4 GB RAM |
-| 50-150 | 15-40 | 4 vCPU / 8 GB RAM |
-| 150+ | 40+ | 8 vCPU / 16 GB RAM or multi-VPS |
+| Registered users | Expected active devices | Suggested starting VPS          |
+| ---------------: | ----------------------: | ------------------------------- |
+|              1-5 |                     1-2 | 1 vCPU / 1 GB RAM               |
+|             5-20 |                     2-5 | 2 vCPU / 2 GB RAM               |
+|            20-50 |                    5-15 | 2-4 vCPU / 4 GB RAM             |
+|           50-150 |                   15-40 | 4 vCPU / 8 GB RAM               |
+|             150+ |                     40+ | 8 vCPU / 16 GB RAM or multi-VPS |
 
 ## Minimum For Public Install
 
@@ -103,13 +118,13 @@ automatic result at 16384 flows:
 - `2048` concurrent TCP flows per available vCPU;
 - `3` concurrent TCP flows per MiB of detected RAM.
 
-| Profile | Flow ceiling | Automatic bandwidth estimate | Inactive-flow timeout |
-| --- | ---: | ---: | ---: |
-| Compact | 512-1024 | 50 Mbps | 5 minutes |
-| Small | 2048 | 100 Mbps | 7 minutes |
-| Standard | 4096 | 250 Mbps | 10 minutes |
-| Performance | 8192 | 500 Mbps | 15 minutes |
-| High capacity | 16384 | 1000 Mbps | 20 minutes |
+| Profile       | Flow ceiling | Automatic bandwidth estimate | Inactive-flow timeout |
+| ------------- | -----------: | ---------------------------: | --------------------: |
+| Compact       |     512-1024 |                      50 Mbps |             5 minutes |
+| Small         |         2048 |                     100 Mbps |             7 minutes |
+| Standard      |         4096 |                     250 Mbps |            10 minutes |
+| Performance   |         8192 |                     500 Mbps |            15 minutes |
+| High capacity |        16384 |                    1000 Mbps |            20 minutes |
 
 The bandwidth value is deliberately conservative and is not a speed test or a
 provider guarantee. The admin can replace it with the advertised VPS bandwidth;

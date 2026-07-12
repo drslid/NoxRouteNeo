@@ -2,6 +2,7 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
   randomBytes,
 } from "node:crypto";
 
@@ -22,11 +23,16 @@ function encryptionKey() {
 export function encryptSecret(value: string) {
   const nonce = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", encryptionKey(), nonce);
-  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(value, "utf8"),
+    cipher.final(),
+  ]);
   const authenticationTag = cipher.getAuthTag();
 
   return {
-    ciphertext: Buffer.concat([encrypted, authenticationTag]).toString("base64"),
+    ciphertext: Buffer.concat([encrypted, authenticationTag]).toString(
+      "base64",
+    ),
     nonce: nonce.toString("base64"),
   };
 }
@@ -53,6 +59,12 @@ export function decryptSecret(ciphertext: string, nonce: string) {
 
 export function secretDigest(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+export function privateIdentifierDigest(value: string) {
+  return createHmac("sha256", encryptionKey())
+    .update(value, "utf8")
+    .digest("hex");
 }
 
 export function generateSubscriptionToken() {

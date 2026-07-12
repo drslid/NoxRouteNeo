@@ -100,7 +100,8 @@ The final output contains the admin URL, VPN endpoint, owner username and one-ti
 4. Enable TOTP and store recovery codes outside the VPS.
 5. Review the language and default user limits in `Settings`.
 6. Create a VPN user.
-7. Sign in as that user, register one device and import its subscription QR code.
+7. Sign in as that user and register one device.
+8. Enable HWID sharing in INCY, then import the subscription QR code or URL.
 
 ## Verification
 
@@ -136,7 +137,7 @@ Run the diagnostic helper first:
 
 ```bash
 sudo ./scripts/doctor.sh
-sudo docker compose logs --tail=200 web runtime traffic-gateway caddy db
+sudo docker compose logs --tail=200 web runtime traffic-gateway security-agent caddy db
 ```
 
 | Symptom                             | Likely cause                       | Action                                                               |

@@ -5,6 +5,7 @@ import {
   createAccountSchema,
   runtimeCommandSchema,
   signInSchema,
+  updateInstanceSettingsSchema,
 } from "./index";
 
 describe("shared contracts", () => {
@@ -52,5 +53,31 @@ describe("shared contracts", () => {
       "ur",
     ]);
     expect(appLocaleSchema.safeParse("en-US").success).toBe(false);
+  });
+
+  it("accepts unlimited instance duration and quota", () => {
+    const result = updateInstanceSettingsSchema.safeParse({
+      appLocale: "en",
+      adminDomain: "admin.duckdns.org",
+      vpnDomain: "vpn.duckdns.org",
+      adminHttpsPort: 8443,
+      vpnPort: 443,
+      xhttpPath: "/noxroute",
+      realityTarget: "www.speedtest.net:443",
+      realityServerName: "www.speedtest.net",
+      defaultConnectionProfile: "balanced",
+      defaultMaxDevices: 2,
+      defaultMaxDays: null,
+      defaultMaxGigabytes: null,
+      defaultSpeedLimitMbps: 0,
+      serverBandwidthLimitPercent: 90,
+      serverBandwidthMbps: null,
+      subscriptionEnabled: true,
+      enforceQuota: true,
+      enforceExpiry: true,
+      telemetryIntervalSeconds: 30,
+    });
+
+    expect(result.success).toBe(true);
   });
 });

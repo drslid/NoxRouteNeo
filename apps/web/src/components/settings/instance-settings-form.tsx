@@ -170,18 +170,21 @@ export function InstanceSettingsForm({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field
             label={t("settings.xhttpPath")}
+            hint={t("settings.xhttpPathHelp")}
             error={form.formState.errors.xhttpPath?.message}
           >
             <Input dir="ltr" {...form.register("xhttpPath")} />
           </Field>
           <Field
             label={t("settings.realityTarget")}
+            hint={t("settings.realityTargetHelp")}
             error={form.formState.errors.realityTarget?.message}
           >
             <Input dir="ltr" {...form.register("realityTarget")} />
           </Field>
           <Field
             label={t("settings.realitySni")}
+            hint={t("settings.realitySniHelp")}
             error={form.formState.errors.realityServerName?.message}
           >
             <Input dir="ltr" {...form.register("realityServerName")} />
@@ -226,26 +229,28 @@ export function InstanceSettingsForm({
           <Field
             label={t("settings.durationDays")}
             hint={t("settings.emptyUnlimited")}
+            error={form.formState.errors.defaultMaxDays?.message}
           >
             <Input
               type="number"
               min={1}
               max={3650}
               {...form.register("defaultMaxDays", {
-                setValueAs: (value) => (value === "" ? null : Number(value)),
+                setValueAs: nullableNumber,
               })}
             />
           </Field>
           <Field
             label={t("settings.quotaGb")}
             hint={t("settings.emptyUnlimited")}
+            error={form.formState.errors.defaultMaxGigabytes?.message}
           >
             <Input
               type="number"
               min={0.1}
               step={0.1}
               {...form.register("defaultMaxGigabytes", {
-                setValueAs: (value) => (value === "" ? null : Number(value)),
+                setValueAs: nullableNumber,
               })}
             />
           </Field>
@@ -307,6 +312,12 @@ export function InstanceSettingsForm({
       </div>
     </form>
   );
+}
+
+function nullableNumber(value: unknown) {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function SectionHeading({

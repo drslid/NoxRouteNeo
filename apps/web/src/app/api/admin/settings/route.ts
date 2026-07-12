@@ -29,7 +29,12 @@ function quotaBytes(gigabytes: number | null) {
 export async function PATCH(request: NextRequest) {
   try {
     const actor = await requireApiSession(request, ["owner", "admin"]);
-    const input = updateInstanceSettingsSchema.parse(await request.json());
+    const payload = (await request.json()) as Record<string, unknown>;
+    const input = updateInstanceSettingsSchema.parse({
+      ...payload,
+      defaultMaxDays: payload.defaultMaxDays ?? null,
+      defaultMaxGigabytes: payload.defaultMaxGigabytes ?? null,
+    });
     const adminDomain = normalizeDomain(input.adminDomain);
     const vpnDomain = normalizeDomain(input.vpnDomain);
     const duckdnsToken = input.duckdnsToken?.trim() || null;

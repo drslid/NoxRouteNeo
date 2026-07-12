@@ -32,7 +32,10 @@
 - [Requirements](#requirements)
 - [One-command installation](#one-command-installation)
 - [Roles and portals](#roles-and-portals)
+- [Connect a device with INCY](#connect-a-device-with-incy)
 - [Connection profiles](#connection-profiles)
+- [XHTTP and REALITY](#xhttp-and-reality)
+- [VPS capacity planning](#vps-capacity-planning)
 - [Languages](#languages)
 - [Security model](#security-model)
 - [Known limitations](#known-limitations)
@@ -58,13 +61,16 @@ It is designed for people who want a small personal VPN server without operating
 - Adapt gateway capacity, idle policy and speed presets to detected CPU and RAM.
 - Inspect per-user and per-device usage without recording browsing destinations.
 - Review security audit events and revoke account sessions.
+- Search and paginate 30 days of audit history.
+- Detect repeated login or subscription abuse, automatically block its IP for six hours and manage permanent bans.
 - Enable TOTP two-factor authentication.
 
 ### User portal
 
 - View data usage, quota, connection time, expiry and active connections.
 - Register a separate credential for each phone, tablet or desktop.
-- Import a stable subscription URL or a direct VLESS string by QR code.
+- Import a stable, device-bound subscription URL by QR code or copy/paste.
+- Bind an INCY subscription to the first phone HWID that refreshes it.
 - Select `Fast`, `Balanced` or `Stealth` for each registered device.
 - Revoke devices and manage password, sessions and TOTP.
 
@@ -86,6 +92,8 @@ flowchart LR
   Web --> DB[(PostgreSQL)]
   Xray --> Gateway[Per-account traffic gateway]
   Gateway --> Internet[Internet through the VPS]
+  Firewall[Dedicated nftables agent] --> Xray
+  Firewall --> Caddy
   Runtime[Runtime Agent] --> Xray
   Runtime --> DB
   Runtime --> Gateway
@@ -98,21 +106,22 @@ flowchart LR
 | `db`              | PostgreSQL application data                        | Private Docker network        |
 | `runtime`         | Xray lifecycle, policy sync and telemetry          | TCP `443`; health on loopback |
 | `traffic-gateway` | Per-account TCP rate limiting and capacity control | Private Docker network        |
+| `security-agent`  | Dedicated IP ban set for public NoxRouteNeo ports  | No network API                |
 
-The Docker socket, PostgreSQL port, Xray API and traffic-gateway control API are not exposed publicly.
+The Docker socket, PostgreSQL port, Xray API and internal control APIs are not exposed publicly. Only the small `security-agent` receives host `NET_ADMIN`; it has no HTTP listener, database credentials or Docker socket and manages one dedicated nftables table.
 
 ## Requirements
 
-| Requirement      | Minimum                                                |
-| ---------------- | ------------------------------------------------------ |
-| Operating system | Ubuntu LTS or Debian                                   |
-| Architecture     | `amd64` or `arm64`                                     |
-| Access           | `root` or a user with `sudo`                           |
-| Network          | Public IPv4 address                                    |
-| Memory           | 1 GiB RAM; the installer can add temporary build swap  |
-| Disk             | 8 GiB total and 4 GiB free; 12 GiB total recommended   |
-| Public TCP ports | `80`, `443`, `8443`                                    |
-| DNS              | One DuckDNS subdomain and its account token             |
+| Requirement      | Minimum                                               |
+| ---------------- | ----------------------------------------------------- |
+| Operating system | Ubuntu LTS or Debian                                  |
+| Architecture     | `amd64` or `arm64`                                    |
+| Access           | `root` or a user with `sudo`                          |
+| Network          | Public IPv4 address                                   |
+| Memory           | 1 GiB RAM; the installer can add temporary build swap |
+| Disk             | 8 GiB total and 4 GiB free; 12 GiB total recommended  |
+| Public TCP ports | `80`, `443`, `8443`                                   |
+| DNS              | One DuckDNS subdomain and its account token           |
 
 Port `443` is reserved for Xray. The web interface uses `8443` so REALITY does not compete with the HTTPS reverse proxy.
 
@@ -165,6 +174,20 @@ All accounts use the same sign-in URL. Better Auth redirects each role to the co
 
 Web sessions expire after one hour. Administrators cannot promote other administrators, and only the owner can reset an administrator password.
 
+## Connect a device with INCY
+
+Each phone receives a separate subscription credential. The subscription URL is the connection string; NoxRouteNeo does not expose the raw VLESS credential in the user portal because a raw VLESS string cannot be tied to physical hardware.
+
+1. The administrator creates a VPN user and sets its quota, expiry, speed and maximum number of devices.
+2. The user signs in through the same web URL and opens `Devices`.
+3. The user creates a device, names it and selects `iPhone / iPad`, `Android` or `Desktop` plus a connection profile.
+4. In INCY, the user enables HWID sharing for subscription requests.
+5. The user opens `Connection`, scans the QR code with INCY or copies the subscription URL into INCY.
+6. INCY refreshes the subscription, displays its latency and binds that credential to the phone HWID.
+7. The user starts the VPN. To move the credential to another phone, the old device must be revoked and recreated in NoxRouteNeo.
+
+The first valid INCY refresh owns the credential. A later refresh with another HWID receives `403`. NoxRouteNeo stores only an HMAC digest of the HWID, plus the reported platform/model and last subscription IP. This prevents reuse of the same subscription QR in the normal INCY flow; it cannot stop a compromised client from extracting and copying the underlying VLESS credential.
+
 ## Connection profiles
 
 Every profile keeps the same VPN standard: `VLESS + XHTTP + REALITY`.
@@ -176,6 +199,31 @@ Every profile keeps the same VPN standard: `VLESS + XHTTP + REALITY`.
 | `Stealth`  | `packet-up`, device-specific short ID and `spiderX` | More request variation with additional overhead |
 
 These profiles adjust transport behavior and compatibility. They do not provide a measurable anonymity or non-detection guarantee.
+
+## XHTTP and REALITY
+
+NoxRouteNeo always generates `VLESS + XHTTP + REALITY` credentials:
+
+- **XHTTP path** is the HTTP-like route shared by the client and Xray, such as `/noxroute`. It is not a public web page. Changing it requires users to refresh their subscriptions.
+- **REALITY target** is a stable public TLS endpoint, including port `443`, whose handshake REALITY imitates for unauthenticated traffic. It must be reachable from the VPS.
+- **REALITY server name** is the hostname sent as TLS SNI. It must be accepted by the configured target and is normally the target hostname without `https://` or a port.
+
+The defaults use `www.speedtest.net:443` and `www.speedtest.net`. These values do not route VPN traffic through Speedtest; normal authenticated traffic exits directly through the VPS.
+
+## VPS capacity planning
+
+The table below is a conservative planning estimate for ordinary mobile browsing at roughly 5-10 Mbps average per active device. It is not a provider guarantee and does not model simultaneous speed tests, large downloads or streaming on every device.
+
+| VPS size       | Adaptive gateway profile | TCP flow ceiling | Fast active devices | Balanced active devices | Stealth active devices |
+| -------------- | ------------------------ | ---------------: | ------------------: | ----------------------: | ---------------------: |
+| 1 vCPU / 1 GB  | Small                    |            2,048 |                 1-3 |                     1-2 |                    1-2 |
+| 2 vCPU / 1 GB  | Small                    |            2,048 |                 2-5 |                     2-4 |                    1-3 |
+| 2 vCPU / 2 GB  | Standard                 |            4,096 |                 3-8 |                     2-6 |                    2-5 |
+| 4 vCPU / 4 GB  | Performance              |            8,192 |                8-18 |                    5-15 |                   4-12 |
+| 4 vCPU / 8 GB  | Performance              |            8,192 |               18-45 |                   15-40 |                  12-30 |
+| 8 vCPU / 16 GB | High capacity            |           16,384 |              50-110 |                  40-100 |                  30-80 |
+
+The flow ceiling is an admission safety limit, not a device count. A single phone may open tens or hundreds of TCP flows. Network throughput and Xray CPU normally become limiting before the flow ceiling. Benchmark the intended provider and workload before selling or promising capacity; see [the sizing methodology](docs/SIZING.md).
 
 ## Languages
 
@@ -200,6 +248,9 @@ The instance language is selected during installation and can later be changed i
 - Subscription tokens are hashed; recoverable application secrets use AES-256-GCM encryption.
 - Production cookies are `Secure` and `HttpOnly`.
 - Login and subscription endpoints are rate limited; state-changing API calls enforce same-origin and role checks.
+- Ten rejected authentication/subscription requests from one public IP within five minutes trigger a six-hour ban.
+- Active bans are enforced before Docker port forwarding by a dedicated nftables agent, without restarting Xray.
+- Security events are retained for seven days; administrative audit logs are retained for 30 days.
 - Database and internal control APIs stay on private networks or loopback.
 - Containers run with dropped capabilities, read-only filesystems where possible and `no-new-privileges`.
 - The application does not store browsing history, requested domains or destination URLs.
@@ -214,7 +265,7 @@ Security reports should follow [SECURITY.md](SECURITY.md).
 
 - The project is still an alpha POC and has not received an independent security audit.
 - Compatible clients must support recent Xray `XHTTP + REALITY` settings.
-- A QR code can be copied to another device; Xray alone cannot prove physical device identity.
+- INCY HWID binding requires HWID sharing to be enabled before the first subscription refresh. Raw Xray credentials cannot provide hardware attestation.
 - TCP rate limiting is per account, while UDP remains direct for mobile compatibility.
 - Connection duration and active-session metrics are sampled rather than measured continuously.
 - The exit country is the VPS country; there is no multi-country exit pool.
@@ -238,7 +289,7 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-`pnpm check` runs ESLint, TypeScript, unit tests, ShellCheck, installer tests, Go traffic-gateway tests, Python Runtime Agent tests and the production Next.js build.
+`pnpm check` runs ESLint, TypeScript, unit tests, ShellCheck, installer tests, Go traffic-gateway tests, Python Runtime Agent and security-agent tests, and the production Next.js build.
 
 The monorepo uses pnpm workspaces and Turborepo:
 
@@ -249,6 +300,7 @@ packages/contracts       Shared Zod contracts
 packages/db              Drizzle schema and migrations
 packages/ui              Shared UI components
 services/runtime         Xray Runtime Agent
+services/security-agent  Dedicated nftables IP-ban agent
 services/traffic-gateway Per-account traffic gateway
 infra                    Caddy and local development infrastructure
 ```

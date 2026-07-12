@@ -50,7 +50,7 @@ compose_down() {
   if [ -f "${compose_file}" ]; then
     log "Arrêt de la stack Docker Compose..."
     if [ -f "${env_file}" ]; then
-      ${SUDO} docker compose --env-file "${env_file}" -f "${compose_file}" down --remove-orphans --rmi local || true
+      ${SUDO} docker compose --env-file "${env_file}" -f "${compose_file}" down --remove-orphans --volumes --rmi local || true
     else
       ${SUDO} docker compose -f "${compose_file}" down --remove-orphans --volumes || true
     fi
@@ -81,7 +81,8 @@ remove_project_networks() {
 
 remove_images() {
   ${SUDO} docker image rm -f noxrouteneo-web:latest noxrouteneo-runtime:latest \
-    noxrouteneo-traffic-gateway:latest 2>/dev/null || true
+    noxrouteneo-traffic-gateway:latest noxrouteneo-security-agent:latest \
+    2>/dev/null || true
 }
 
 remove_files() {

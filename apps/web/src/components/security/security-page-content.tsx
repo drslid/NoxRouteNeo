@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db, session as sessionTable } from "@noxroute/db";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@noxroute/ui";
+import { ExternalLink } from "lucide-react";
 
 import { SecurityControls } from "./security-controls";
 import { intlLocale } from "@/i18n/config";
@@ -21,6 +22,7 @@ export async function SecurityPageContent({
       createdAt: sessionTable.createdAt,
       expiresAt: sessionTable.expiresAt,
       userAgent: sessionTable.userAgent,
+      ipAddress: sessionTable.ipAddress,
     })
     .from(sessionTable)
     .where(eq(sessionTable.userId, userId))
@@ -58,6 +60,17 @@ export async function SecurityPageContent({
                     expires: item.expiresAt.toLocaleTimeString(numberLocale),
                   })}
                 </p>
+                {item.ipAddress && (
+                  <a
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                    href={`https://tools.keycdn.com/geo?host=${encodeURIComponent(item.ipAddress)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {item.ipAddress}
+                    <ExternalLink className="size-3" aria-hidden="true" />
+                  </a>
+                )}
               </div>
               <Badge variant="success">{t("common.active")}</Badge>
             </div>

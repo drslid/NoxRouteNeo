@@ -54,6 +54,12 @@ TRAFFIC_GATEWAY_TOKEN = os.environ.get("TRAFFIC_GATEWAY_TOKEN", "")
 DUCKDNS_TOKEN_FILE = Path(
     os.environ.get("DUCKDNS_TOKEN_FILE", "/run/secrets/duckdns_token")
 )
+SECURITY_POLICY_PATH = Path(
+    os.environ.get("SECURITY_POLICY_PATH", "/security/policy.json")
+)
+SECURITY_STATUS_PATH = Path(
+    os.environ.get("SECURITY_STATUS_PATH", "/security/status.json")
+)
 RUNTIME_VERSION = "1.3.0"
 
 _encoded_key = os.environ.get("APP_ENCRYPTION_KEY", "")
@@ -316,6 +322,7 @@ class RuntimeAgent:
         self.last_telemetry = 0.0
         self.last_duckdns = 0.0
         self.last_caddy_reload = 0.0
+        self.last_cleanup = 0.0
         self.health_lock = threading.Lock()
         self.health: dict[str, Any] = {
             "status": "starting",
@@ -436,6 +443,40 @@ class RuntimeAgent:
         self.set_health(status=status, xray_running=running, last_error=error)
 
     @staticmethod
+    def cleanup_expired_data() -> dict[str, int]:
+        deleted: dict[str, int] = {}
+        statements = {
+            "audit_logs": (
+                "delete from audit_logs where created_at < now() - interval '30 days'"
+            ),
+            "security_events": (
+                "delete from security_events where created_at < now() - interval '7 days'"
+            ),
+            "ip_bans": """
+                delete from ip_bans
+                where released_at < now() - interval '7 days'
+                   or (
+                     permanent = false
+                     and expires_at < now() - interval '7 days'
+                   )
+            """,
+            "rate_limits": """
+                delete from rate_limit
+                where last_request < (
+                    extract(epoch from now() - interval '2 days') * 1000
+                )
+            """,
+            "expired_sessions": (
+                "delete from session where expires_at < now() - interval '1 day'"
+            ),
+        }
+        with db_connection() as connection, connection.cursor() as cursor:
+            for name, statement in statements.items():
+                cursor.execute(statement)
+                deleted[name] = cursor.rowcount
+        return deleted
+
+    @staticmethod
     def generate_reality_keypair() -> tuple[str, str]:
         result = subprocess.run(
             [XRAY_BINARY, "x25519"],
@@ -546,6 +587,16 @@ class RuntimeAgent:
                 """
             )
             rows = cursor.fetchall()
+            cursor.execute(
+                """
+                select ip_address
+                from ip_bans
+                where released_at is null
+                  and (permanent = true or expires_at > now())
+                order by ip_address
+                """
+            )
+            blocked_source_ips = [row["ip_address"] for row in cursor.fetchall()]
 
         now = datetime.now(timezone.utc)
         clients: list[dict[str, Any]] = []
@@ -604,12 +655,15 @@ class RuntimeAgent:
             "server_bandwidth_mbps": server_bandwidth_mbps,
             "server_bandwidth_mode": bandwidth_mode,
             "gateway_available": False,
+            "blocked_source_ips": blocked_source_ips,
         }
 
     @staticmethod
     def fingerprint(model: dict[str, Any]) -> str:
         stable_model = {
-            key: value for key, value in model.items() if key != "gateway_available"
+            key: value
+            for key, value in model.items()
+            if key not in {"gateway_available", "blocked_source_ips"}
         }
         payload = json.dumps(
             stable_model, sort_keys=True, default=str, separators=(",", ":")
@@ -749,6 +803,41 @@ class RuntimeAgent:
                 "enableConcurrency": True,
             }
         return config
+
+    @staticmethod
+    def write_security_policy(model: dict[str, Any]) -> None:
+        policy = {
+            "blocked_ips": model["blocked_source_ips"],
+            "ports": sorted(
+                {
+                    80,
+                    int(model["settings"]["vpn_port"]),
+                    int(model["settings"]["admin_https_port"]),
+                }
+            ),
+        }
+        SECURITY_POLICY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        temporary = SECURITY_POLICY_PATH.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(policy, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        temporary.chmod(0o640)
+        temporary.replace(SECURITY_POLICY_PATH)
+
+    @staticmethod
+    def security_firewall_health() -> tuple[str, int]:
+        try:
+            payload = json.loads(SECURITY_STATUS_PATH.read_text(encoding="utf-8"))
+            updated_at = int(payload.get("updated_at", 0))
+            if int(time.time()) - updated_at >= 30:
+                return "stale", 0
+            count = int(payload.get("ipv4_bans", 0)) + int(
+                payload.get("ipv6_bans", 0)
+            )
+            return str(payload.get("status", "unknown")), max(0, count)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            return "unavailable", 0
 
     def write_and_validate_config(self, model: dict[str, Any]) -> None:
         XRAY_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -1158,9 +1247,21 @@ https://{domain}:{port} {{
         while not self.stop_event.is_set():
             commands: list[ClaimedCommand] = []
             try:
+                now = time.monotonic()
+                if now - self.last_cleanup >= 3600:
+                    deleted = self.cleanup_expired_data()
+                    self.last_cleanup = now
+                    if any(deleted.values()):
+                        LOGGER.info("Retention cleanup removed rows: %s", deleted)
                 limits_changed = self.enforce_limits()
                 commands = self.claim_commands()
                 model = self.load_model()
+                self.write_security_policy(model)
+                firewall_status, firewall_bans = self.security_firewall_health()
+                self.set_health(
+                    security_firewall=firewall_status,
+                    security_firewall_bans=firewall_bans,
+                )
                 gateway_required = any(
                     access["gateway_enabled"] for access in model["accesses"]
                 )

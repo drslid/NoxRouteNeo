@@ -143,6 +143,18 @@ export type UpdateInstanceSettingsInput = z.infer<
   typeof updateInstanceSettingsSchema
 >;
 
+export const createIpBanSchema = z.object({
+  ipAddress: z.string().trim().min(3).max(45),
+  reason: z.string().trim().min(3).max(240),
+  permanent: z.boolean(),
+});
+export type CreateIpBanInput = z.infer<typeof createIpBanSchema>;
+
+export const updateIpBanSchema = z.object({
+  action: z.enum(["release", "temporary", "permanent"]),
+});
+export type UpdateIpBanInput = z.infer<typeof updateIpBanSchema>;
+
 export const setupBootstrapSchema = z.object({
   appLocale: appLocaleSchema.default("en"),
   ownerUsername: usernameSchema,

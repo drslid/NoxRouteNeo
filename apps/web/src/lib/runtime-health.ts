@@ -15,6 +15,11 @@ export type RuntimeSizing = {
   bandwidthMode: "auto" | "manual" | "environment";
 };
 
+export type RuntimeSecurity = {
+  status: string;
+  activeBans: number;
+};
+
 function nonNegativeInteger(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0
     ? value
@@ -82,6 +87,25 @@ export async function getRuntimeSizing(): Promise<RuntimeSizing | null> {
       serverBandwidthMbps,
       bandwidthMode,
     };
+  } catch {
+    return null;
+  }
+}
+
+export async function getRuntimeSecurity(): Promise<RuntimeSecurity | null> {
+  try {
+    const baseUrl = process.env.RUNTIME_INTERNAL_URL ?? "http://runtime:8081";
+    const response = await fetch(`${baseUrl}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as Record<string, unknown>;
+    const activeBans = nonNegativeInteger(payload.security_firewall_bans);
+    if (typeof payload.security_firewall !== "string" || activeBans === null) {
+      return null;
+    }
+    return { status: payload.security_firewall, activeBans };
   } catch {
     return null;
   }

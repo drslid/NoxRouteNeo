@@ -2,18 +2,18 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { db, rateLimit } from "@noxroute/db";
 import { sql } from "drizzle-orm";
-import type { NextRequest } from "next/server";
 
 function digest(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function requestAddress(request: NextRequest) {
-  const forwarded = request.headers
-    .get("x-forwarded-for")
-    ?.split(",")[0]
-    ?.trim();
-  return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
+export function addressFromHeaders(headers: Headers) {
+  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+export function requestAddress(request: Request) {
+  return addressFromHeaders(request.headers);
 }
 
 export async function consumeRateLimit({

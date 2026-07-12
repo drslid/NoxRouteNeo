@@ -16,6 +16,16 @@ export function NoxRouteMark({
       xmlns="http://www.w3.org/2000/svg"
     >
       <rect width="64" height="64" rx="15" fill="#0b1724" />
+      <rect
+        x="1"
+        y="1"
+        width="62"
+        height="62"
+        rx="14"
+        fill="none"
+        stroke="#334b5e"
+        strokeWidth="2"
+      />
       <path
         d="M16 45V21.5A5.5 5.5 0 0 1 26.3 19l11.4 23.1A5.5 5.5 0 0 0 48 39.7V17"
         fill="none"

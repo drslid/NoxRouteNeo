@@ -146,6 +146,34 @@ services:
     networks:
       - traffic
 
+  security-agent:
+    build:
+      context: .
+      dockerfile: services/security-agent/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    group_add:
+      - "10001"
+    volumes:
+      - security-policy:/security
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - CHOWN
+    pids_limit: 50
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   runtime:
     build:
       context: .
@@ -160,6 +188,8 @@ services:
         condition: service_healthy
       traffic-gateway:
         condition: service_started
+      security-agent:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-noxroute}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-noxrouteneo}
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?APP_ENCRYPTION_KEY is required}
@@ -172,6 +202,8 @@ services:
       TRAFFIC_GATEWAY_SOCKS_PORT: "1080"
       RUNTIME_POLL_SECONDS: "2"
       XRAY_LISTEN_PORT: "10443"
+      SECURITY_POLICY_PATH: /security/policy.json
+      SECURITY_STATUS_PATH: /security/status.json
     ports:
       - "443:10443"
       - "127.0.0.1:${RUNTIME_HEALTH_PORT:-18081}:8081"
@@ -179,6 +211,8 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
       - /runtime:rw,noexec,nosuid,uid=10001,gid=10001,mode=0700,size=32m
+    volumes:
+      - security-policy:/security
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -201,3 +235,6 @@ networks:
     internal: true
   traffic:
     driver: bridge
+
+volumes:
+  security-policy:

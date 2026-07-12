@@ -15,9 +15,7 @@ export async function GET(
       actor.session.user.id,
       deviceId,
     );
-    const kind = request.nextUrl.searchParams.get("kind");
-    const value = kind === "direct" ? connection.directUri : connection.subscriptionUrl;
-    const svg = await QRCode.toString(value, {
+    const svg = await QRCode.toString(connection.subscriptionUrl, {
       type: "svg",
       errorCorrectionLevel: "M",
       margin: 2,
@@ -28,7 +26,8 @@ export async function GET(
       headers: {
         "Cache-Control": "no-store",
         "Content-Type": "image/svg+xml; charset=utf-8",
-        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+        "Content-Security-Policy":
+          "default-src 'none'; style-src 'unsafe-inline'",
       },
     });
   } catch (error) {

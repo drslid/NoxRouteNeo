@@ -3,9 +3,16 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, type AuthSession } from "@noxroute/auth/server";
 import { isAppRole, type AppRole } from "@noxroute/auth/permissions";
+import { activeIpBan, normalizeIpAddress } from "@/lib/network-security";
+import { addressFromHeaders } from "@/lib/rate-limit";
 
 export const getSession = cache(async (): Promise<AuthSession | null> => {
-  return auth.api.getSession({ headers: await headers() });
+  const requestHeaders = await headers();
+  const ban = await activeIpBan(
+    normalizeIpAddress(addressFromHeaders(requestHeaders)),
+  );
+  if (ban) return null;
+  return auth.api.getSession({ headers: requestHeaders });
 });
 
 export function sessionRole(session: AuthSession): AppRole {

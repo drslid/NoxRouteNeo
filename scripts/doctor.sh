@@ -152,7 +152,7 @@ main() {
     check_dns "${vpn_domain}" "${public_ip}"
   fi
 
-  for service in db web caddy traffic-gateway runtime; do
+  for service in db web caddy traffic-gateway security-agent runtime; do
     check_service "${service}"
   done
 

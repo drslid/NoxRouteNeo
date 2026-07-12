@@ -237,6 +237,16 @@ export const subscriptionCredentials = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    hwidDigest: text("hwid_digest"),
+    hwidBoundAt: timestamp("hwid_bound_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    lastIpAddress: text("last_ip_address"),
+    lastUserAgent: text("last_user_agent"),
+    lastDevicePlatform: text("last_device_platform"),
+    lastDeviceModel: text("last_device_model"),
+    lastDeviceOs: text("last_device_os"),
     revokedAt: timestamp("revoked_at", {
       withTimezone: true,
       mode: "date",
@@ -248,6 +258,7 @@ export const subscriptionCredentials = pgTable(
   (table) => [
     uniqueIndex("subscription_credentials_device_id_uidx").on(table.deviceId),
     uniqueIndex("subscription_credentials_digest_uidx").on(table.tokenDigest),
+    index("subscription_credentials_hwid_idx").on(table.hwidDigest),
   ],
 );
 
@@ -483,5 +494,83 @@ export const auditLogs = pgTable(
   (table) => [
     index("audit_logs_actor_idx").on(table.actorUserId),
     index("audit_logs_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const securityEvents = pgTable(
+  "security_events",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    ipAddress: text("ip_address").notNull(),
+    kind: text("kind").notNull(),
+    outcome: text("outcome").notNull(),
+    route: text("route"),
+    userAgent: text("user_agent"),
+    metadata: jsonb("metadata")
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("security_events_created_at_idx").on(table.createdAt),
+    index("security_events_ip_created_at_idx").on(
+      table.ipAddress,
+      table.createdAt,
+    ),
+    index("security_events_kind_created_at_idx").on(
+      table.kind,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const ipBans = pgTable(
+  "ip_bans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ipAddress: text("ip_address").notNull(),
+    source: text("source").notNull().default("manual"),
+    reason: text("reason").notNull(),
+    permanent: boolean("permanent").notNull().default(false),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    occurrenceCount: integer("occurrence_count").notNull().default(1),
+    firstSeenAt: timestamp("first_seen_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text("created_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    releasedAt: timestamp("released_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    releasedByUserId: text("released_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("ip_bans_ip_address_uidx").on(table.ipAddress),
+    index("ip_bans_expires_at_idx").on(table.expiresAt),
+    index("ip_bans_last_seen_at_idx").on(table.lastSeenAt),
   ],
 );
