@@ -47,6 +47,11 @@ export function InstanceSettingsForm({
           });
         }
       }
+      toast.error(t("settings.updateFailed"), {
+        description: result.error.issues
+          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+          .join("; "),
+      });
       return;
     }
 
