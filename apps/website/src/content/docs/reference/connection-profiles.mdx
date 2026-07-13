@@ -1,0 +1,29 @@
+---
+title: Connection profiles
+description: Choose between Fast, Balanced and Stealth without exposing raw Xray settings.
+---
+
+Every NoxRouteNeo device still uses `VLESS + XHTTP + REALITY`. Profiles change a
+small, tested set of client transport parameters; they are not separate VPN
+protocols.
+
+| Profile    | XHTTP behavior                                 | Intended use                                     | Trade-off                                    |
+| ---------- | ---------------------------------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `Fast`     | `stream-one`, lowest overhead                  | Stable home or mobile networks                   | Least request variation                      |
+| `Balanced` | Default XHTTP behavior                         | Recommended starting point                       | Middle ground                                |
+| `Stealth`  | `packet-up` and device-specific path variation | Networks where the default profile is unreliable | More overhead and potentially higher latency |
+
+Changing a profile regenerates the device subscription response. Refresh the
+subscription in the VPN client, disconnect and reconnect before evaluating the
+result.
+
+## What profiles do not do
+
+- They do not change the VPS exit address.
+- They do not guarantee that a network cannot classify or block the connection.
+- They do not provide measurable levels of anonymity.
+- They do not make the client invisible to browser fingerprinting, account logins or cookies.
+
+Start with `Balanced`. Use `Fast` when minimizing overhead matters and `Stealth`
+only when testing whether its different XHTTP behavior improves reliability on a
+specific network.

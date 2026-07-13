@@ -25,6 +25,7 @@ Thumbs.db
 # Build/cache artifacts
 node_modules/
 .next/
+.astro/
 .turbo/
 coverage/
 dist/

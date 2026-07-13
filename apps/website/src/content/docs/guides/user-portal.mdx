@@ -1,0 +1,69 @@
+---
+title: User portal
+description: Track VPN usage, manage devices and secure a NoxRouteNeo user account.
+---
+
+import { Image } from "astro:assets";
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+import connectionImage from "@repo-assets/user-connection.png";
+
+The user portal intentionally exposes fewer controls than the administrator
+interface. A user can manage only their own account and VPN devices.
+
+## VPN dashboard
+
+The dashboard summarizes:
+
+- total upload and download usage;
+- quota consumed and remaining;
+- account expiration or unlimited duration;
+- accumulated connection time;
+- active connections and recent device activity;
+- the account speed policy.
+
+Usage is aggregated from Xray counters. NoxRouteNeo does not store requested
+domains, URLs or browsing history.
+
+## Devices
+
+<CardGrid>
+  <Card title="Register">
+    Create one named credential for each phone, tablet or desktop, up to the
+    administrator-defined device limit.
+  </Card>
+  <Card title="Configure">
+    Choose the platform and a Fast, Balanced or Stealth connection profile for
+    that device.
+  </Card>
+  <Card title="Connect">
+    Open the device connection page to use one-click import, a QR code or the
+    subscription URL.
+  </Card>
+  <Card title="Revoke">
+    Remove a lost or replaced device. Its subscription token and VPN identity
+    stop being accepted.
+  </Card>
+</CardGrid>
+
+<figure className="product-shot">
+  <Image
+    src={connectionImage}
+    alt="NoxRouteNeo device connection page with a device-bound subscription QR code"
+  />
+  <figcaption>
+    Each device receives a separate, revocable subscription rather than a shared
+    account-wide QR code.
+  </figcaption>
+</figure>
+
+## Account settings
+
+Users can change their password, inspect active web sessions, revoke sessions,
+enable TOTP and select a personal interface language. The personal language does
+not change the default for other accounts.
+
+<Aside type="note" title="Web sessions and VPN connections are different">
+  An active web session means a browser is signed in to the portal. Device VPN
+  activity is shown separately and is based on Xray and traffic-gateway
+  telemetry.
+</Aside>

@@ -1,0 +1,69 @@
+---
+title: Admin portal
+description: Operate accounts, policies, traffic, security and VPN settings from NoxRouteNeo.
+---
+
+import { Image } from "astro:assets";
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+import dashboardImage from "@repo-assets/dashboard.png";
+
+<figure className="product-shot">
+  <Image
+    src={dashboardImage}
+    alt="NoxRouteNeo administration dashboard with traffic, resource and gateway telemetry"
+  />
+</figure>
+
+## Main areas
+
+<CardGrid>
+  <Card title="Dashboard">
+    Observe throughput, transfer volume, Xray CPU and memory, active accounts,
+    active connections and traffic-gateway capacity.
+  </Card>
+  <Card title="Accounts">
+    Create VPN users or administrators, set limits, reset credentials, suspend
+    access and inspect account details.
+  </Card>
+  <Card title="Activity">
+    Review aggregate usage and current activity by user and registered device.
+  </Card>
+  <Card title="Security">
+    Search audit events, inspect web sessions, review temporary IP bans and
+    create or remove permanent bans.
+  </Card>
+  <Card title="Settings">
+    Configure account defaults, traffic-gateway policy, DuckDNS, XHTTP and the
+    REALITY target.
+  </Card>
+  <Card title="Diagnostics">
+    Validate the REALITY target and make a real HTTPS request through a
+    temporary local VLESS + XHTTP + REALITY client.
+  </Card>
+</CardGrid>
+
+## Account policies
+
+An administrator can set these values per VPN user:
+
+- duration in days, or unlimited;
+- transfer quota in GB, or unlimited;
+- maximum registered devices;
+- TCP speed limit;
+- enabled or suspended state.
+
+Routine account and device changes are synchronized through Xray's local API so
+existing tunnels do not need a full Xray restart.
+
+## Operational boundaries
+
+- PostgreSQL, Xray's API and internal service APIs remain private.
+- Security events and audit history are operational metadata, not browsing history.
+- The flow ceiling is a safety admission limit, not the number of users the VPS can support.
+- CPU, memory and network throughput normally become limiting before the configured flow ceiling.
+
+<Aside type="tip" title="Keep owner operations separate">
+  Only the owner should create administrators or perform sensitive administrator
+  password resets. Daily user management can be delegated to an administrator
+  account with narrower permissions.
+</Aside>

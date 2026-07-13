@@ -1,0 +1,80 @@
+---
+title: Connect a device
+description: Register a phone or desktop and import its device-bound NoxRouteNeo subscription.
+---
+
+import { Image } from "astro:assets";
+import { Aside, Steps } from "@astrojs/starlight/components";
+import registerDeviceImage from "@repo-assets/register-device.png";
+import connectionImage from "@repo-assets/user-connection.png";
+
+NoxRouteNeo creates a separate VPN credential for every registered device. This
+makes it possible to revoke one phone without replacing credentials on every
+other device.
+
+## Supported client path
+
+| Platform                           | Client                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| iPhone, iPad and Apple Silicon Mac | [INCY on the App Store](https://apps.apple.com/us/app/incy/id6756943388)            |
+| Android                            | [INCY on Google Play](https://play.google.com/store/apps/details?id=llc.itdev.incy) |
+| Windows and Linux                  | [INCY Desktop releases](https://github.com/INCY-DEV/incy-platforms/releases/latest) |
+| Client documentation               | [INCY website](https://incy.cc/) and [HWID guide](https://docs.incy.cc/en/hwid/)    |
+
+NoxRouteNeo is not affiliated with INCY. Client compatibility can change, so
+test the current client release before distributing access broadly.
+
+## Register and connect
+
+<Steps>
+1. Sign in to the NoxRouteNeo user portal and open **Devices**.
+2. Select **Register device**, enter a recognizable name and choose the matching platform.
+3. Select **Balanced** unless the administrator recommends another profile for the current network.
+
+<figure className="product-shot">
+  <Image
+    src={registerDeviceImage}
+    alt="Registering an iPhone device with the Balanced profile in NoxRouteNeo"
+  />
+</figure>
+
+4. Open the new device and select **Connection**.
+5. In INCY, enable HWID sharing for subscription requests.
+6. Use **Import in INCY** on the same device. When direct import is unavailable, scan the QR code or paste the subscription URL.
+
+   <figure className="product-shot">
+     <Image
+       src={connectionImage}
+       alt="Device-bound subscription QR code and URL in NoxRouteNeo"
+     />
+   </figure>
+
+7. Refresh the subscription in INCY and run its latency test.
+8. Start the VPN and verify the observed public address through a reputable IP-check service.
+   </Steps>
+
+## Device binding
+
+The first valid INCY subscription refresh binds the credential to the HWID sent
+by the client. A later refresh with a different HWID is rejected. NoxRouteNeo
+stores an HMAC digest of the identifier, not its raw value.
+
+| Response | Meaning                                                              |
+| -------- | -------------------------------------------------------------------- |
+| `428`    | The client did not send the required HWID information.               |
+| `403`    | The credential is already bound to another HWID or has been revoked. |
+
+To move access to a new phone, revoke the old device and register a replacement.
+
+<Aside type="caution" title="Binding has a client-side trust limit">
+  HWID binding prevents normal reuse of the subscription QR code. It cannot stop
+  a compromised or modified client from extracting and copying the underlying
+  VLESS credential after a successful subscription response.
+</Aside>
+
+## Latency
+
+Latency is measured by the client from its current Wi-Fi or mobile network. The
+server cannot provide a truthful phone-to-VPS latency value in advance. Refresh
+the subscription or trigger the client test when INCY does not yet display a
+measurement.

@@ -1,0 +1,39 @@
+---
+title: VPS sizing
+description: Conservative capacity estimates for a self-hosted NoxRouteNeo server.
+---
+
+These estimates assume ordinary mobile browsing at approximately 5-10 Mbps
+average per active device. They do not model simultaneous speed tests, sustained
+large downloads or video streaming on every device.
+
+| VPS size       | Adaptive profile | TCP flow ceiling | Fast devices | Balanced devices | Stealth devices |
+| -------------- | ---------------- | ---------------: | -----------: | ---------------: | --------------: |
+| 1 vCPU / 1 GB  | Small            |            2,048 |          1-3 |              1-2 |             1-2 |
+| 2 vCPU / 1 GB  | Small            |            2,048 |          2-5 |              2-4 |             1-3 |
+| 2 vCPU / 2 GB  | Standard         |            4,096 |          3-8 |              2-6 |             2-5 |
+| 4 vCPU / 4 GB  | Performance      |            8,192 |         8-18 |             5-15 |            4-12 |
+| 4 vCPU / 8 GB  | Performance      |            8,192 |        18-45 |            15-40 |           12-30 |
+| 8 vCPU / 16 GB | High capacity    |           16,384 |       50-110 |           40-100 |           30-80 |
+
+## Interpret the flow ceiling correctly
+
+A TCP flow is not a user or device. One modern phone can open tens or hundreds
+of concurrent flows. The ceiling protects the gateway from unbounded admission;
+it is intentionally much higher than the recommended active-device count.
+
+## Common bottlenecks
+
+1. Provider network throughput and fair-use policy.
+2. Xray CPU during encryption and high connection churn.
+3. Memory used by the web application, PostgreSQL and active flow state.
+4. Disk pressure from container logs, database growth and backups.
+5. Client network latency and packet loss.
+
+The installer derives safe gateway defaults from available CPU and memory. It
+cannot infer provider bandwidth quality, CPU contention on a shared host or the
+intended workload.
+
+Before promising capacity, run reproducible connection, throughput and restart
+tests on the exact VPS plan. The full benchmark methodology remains available in
+[`docs/SIZING.md`](https://github.com/drslid/NoxRouteNeo/blob/main/docs/SIZING.md).

@@ -1,0 +1,226 @@
+---
+title: NoxRouteNeo
+description: Deploy a free, self-hosted VLESS, XHTTP and REALITY gateway on your own VPS.
+template: splash
+head:
+  - tag: title
+    content: NoxRouteNeo - Free self-hosted VPN gateway
+hero:
+  tagline: A free, self-hosted private gateway with guided installation, separate admin and user portals, and one predictable VPN standard.
+  actions:
+    - text: Install NoxRouteNeo
+      link: /getting-started/install/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/drslid/NoxRouteNeo
+      icon: external
+      variant: minimal
+---
+
+import { Image } from "astro:assets";
+import { Aside, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import dashboardImage from "@repo-assets/dashboard.png";
+import protectedRoute from "@repo-assets/protected-route.png";
+import registerDeviceImage from "@repo-assets/register-device.png";
+import connectionImage from "@repo-assets/user-connection.png";
+
+<figure className="route-figure">
+  <Image
+    src={protectedRoute}
+    alt="A five-step NoxRouteNeo connection from a personal device, across a restricted network and an encrypted tunnel, through a private VPS to the Internet"
+    loading="eager"
+  />
+  <figcaption>
+    Traffic travels through an encrypted VLESS + XHTTP + REALITY tunnel to a VPS
+    you control. Destination websites receive the VPS address rather than the
+    device's home or mobile address.
+  </figcaption>
+</figure>
+
+<section className="home-section home-summary">
+  <div>
+    <p className="section-kicker">THE PRODUCT</p>
+    <h2>One server. One understandable appliance.</h2>
+    <p className="section-copy">
+      NoxRouteNeo combines the VPN runtime, web portals, usage policies,
+      certificates and local database in one Docker deployment. It is designed
+      for a personal server or a small group, without a remote control plane.
+    </p>
+    <a className="inline-action" href="/getting-started/overview/">
+      Read the product overview <span aria-hidden="true">&#8594;</span>
+    </a>
+  </div>
+
+  <dl className="fact-grid">
+    <div>
+      <dt>License</dt>
+      <dd>Free and open source</dd>
+    </div>
+    <div>
+      <dt>Deployment</dt>
+      <dd>One Ubuntu or Debian VPS</dd>
+    </div>
+    <div>
+      <dt>VPN standard</dt>
+      <dd>VLESS + XHTTP + REALITY</dd>
+    </div>
+    <div>
+      <dt>Data ownership</dt>
+      <dd>Stored on your infrastructure</dd>
+    </div>
+  </dl>
+</section>
+
+<section className="home-section">
+  <p className="section-kicker">ADMINISTRATION</p>
+  <h2 className="section-heading">Operate the gateway without editing Xray files</h2>
+  <p className="section-copy">
+    The owner and administrator portals centralize account policies, traffic,
+    resource usage, gateway capacity, security events and service health.
+  </p>
+
+<figure className="product-shot product-shot-wide">
+  <Image
+    src={dashboardImage}
+    alt="NoxRouteNeo administration dashboard showing VPN traffic, resource usage and gateway health"
+    loading="lazy"
+  />
+  <figcaption>
+    Live operational data for the VPN runtime and the host server.
+  </figcaption>
+</figure>
+
+  <a className="inline-action" href="/guides/admin-portal/">
+    Explore the admin portal <span aria-hidden="true">&#8594;</span>
+  </a>
+</section>
+
+<section className="home-section portal-showcase">
+  <div className="portal-copy">
+    <p className="section-kicker">USER EXPERIENCE</p>
+    <h2>A focused portal for every VPN user</h2>
+    <p className="section-copy">
+      Users see only their own consumption, expiry and devices. Each phone or
+      computer receives an independent credential that can be revoked without
+      affecting the other devices.
+    </p>
+    <ul className="compact-list">
+      <li>Register a phone, tablet or desktop</li>
+      <li>Select Fast, Balanced or Stealth</li>
+      <li>Import with a link, QR code or subscription URL</li>
+      <li>Review usage and revoke access</li>
+    </ul>
+    <a className="inline-action" href="/guides/connect-device/">
+      Follow the connection guide <span aria-hidden="true">&#8594;</span>
+    </a>
+  </div>
+
+  <div className="portal-shots">
+    <figure className="product-shot">
+      <Image
+        src={registerDeviceImage}
+        alt="Registering an iPhone with the Balanced connection profile in NoxRouteNeo"
+        loading="lazy"
+      />
+      <figcaption>Register one credential per device.</figcaption>
+    </figure>
+    <figure className="product-shot">
+      <Image
+        src={connectionImage}
+        alt="Device-bound INCY subscription QR code and URL in the NoxRouteNeo user portal"
+        loading="lazy"
+      />
+      <figcaption>Import the connection without exposing raw settings.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section className="home-section">
+  <p className="section-kicker">FROM VPS TO FIRST CONNECTION</p>
+  <h2 className="section-heading">A guided deployment in four stages</h2>
+  <div className="process-grid">
+    <div>
+      <span>01</span>
+      <h3>Prepare</h3>
+      <p>Create a DuckDNS name and obtain its account token.</p>
+    </div>
+    <div>
+      <span>02</span>
+      <h3>Install</h3>
+      <p>Run the version-pinned command on a fresh supported VPS.</p>
+    </div>
+    <div>
+      <span>03</span>
+      <h3>Secure</h3>
+      <p>Sign in with the generated owner password and enable TOTP.</p>
+    </div>
+    <div>
+      <span>04</span>
+      <h3>Connect</h3>
+      <p>Create a VPN user, register a device and import its subscription.</p>
+    </div>
+  </div>
+
+  <div className="install-preview">
+    <p>Install the pinned alpha release on Ubuntu or Debian</p>
+
+    ```bash
+    sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.2/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.2 bash /tmp/noxrouteneo-install.sh
+    ```
+
+    <a className="inline-action" href="/getting-started/install/">
+      Review requirements before installing <span aria-hidden="true">&#8594;</span>
+    </a>
+
+  </div>
+</section>
+
+<section className="home-section docs-section">
+  <p className="section-kicker">DOCUMENTATION</p>
+  <h2 className="section-heading">Go from setup to daily operation</h2>
+  <CardGrid>
+    <LinkCard
+      title="Install on a VPS"
+      description="Prepare DuckDNS and deploy the complete Docker stack."
+      href="/getting-started/install/"
+    />
+    <LinkCard
+      title="Connect a device"
+      description="Create a revocable credential and import it into INCY."
+      href="/guides/connect-device/"
+    />
+    <LinkCard
+      title="Review the architecture"
+      description="Understand public ports, containers and trust boundaries."
+      href="/reference/architecture/"
+    />
+    <LinkCard
+      title="Plan VPS capacity"
+      description="Use conservative estimates and reproducible benchmarks."
+      href="/reference/vps-sizing/"
+    />
+  </CardGrid>
+</section>
+
+<section className="managed-band">
+  <div>
+    <p className="section-kicker">TWO DISTINCT PRODUCTS</p>
+    <h2>NoxRouteNeo is self-hosted. NoxRoute will be managed.</h2>
+    <p>
+      NoxRouteNeo remains the free project for people who operate their own VPS.
+      NoxRoute is a separate future paid service for customers who do not want
+      to administer infrastructure and need additional managed routing options.
+    </p>
+  </div>
+  <a className="managed-action" href="https://noxroute.com">
+    Discover NoxRoute <span aria-hidden="true">&#8599;</span>
+  </a>
+</section>
+
+<Aside type="caution" title="Privacy is not an absolute guarantee">
+  NoxRouteNeo encrypts traffic between the client and the VPS and hides the
+  client's public address from destination websites. Effectiveness still depends
+  on the client, network, VPS, browser behavior and configuration. The project
+  does not claim complete anonymity or universal censorship bypass.
+</Aside>

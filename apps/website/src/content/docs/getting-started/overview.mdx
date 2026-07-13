@@ -1,0 +1,55 @@
+---
+title: Overview
+description: Understand what NoxRouteNeo installs and whether it fits your use case.
+---
+
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+
+NoxRouteNeo turns one Linux VPS into a small self-hosted VPN appliance. The same
+installation provides the VPN endpoint, account management, user access,
+telemetry, certificates and persistent storage.
+
+## What the installer deploys
+
+<CardGrid>
+  <Card title="Web application">
+    A Next.js admin and user portal protected by Better Auth and served through
+    HTTPS.
+  </Card>
+  <Card title="VPN runtime">
+    Xray with VLESS + XHTTP + REALITY, plus a per-account traffic gateway.
+  </Card>
+  <Card title="Local data">
+    PostgreSQL stores accounts, devices, policies, aggregate usage and audit
+    events. It is not publicly exposed.
+  </Card>
+  <Card title="Operations">
+    DuckDNS updates, certificate management, health checks, adaptive flow
+    capacity and a narrowly scoped security agent.
+  </Card>
+</CardGrid>
+
+## Good fit
+
+- A personal or small shared VPN on one VPS.
+- An administrator who wants to create local users and revoke individual devices.
+- A deployment where simple operations matter more than broad protocol support.
+- Ubuntu or Debian on `amd64` or `arm64`.
+
+## Not a good fit
+
+- A commercial multi-node VPN control plane.
+- A guaranteed anonymity service.
+- Torrenting, spam, scanning, scraping or abusive workloads.
+- An environment where the VPS provider forbids proxy or VPN traffic.
+- A deployment that requires Windows Server or a container host without a public IPv4 address.
+
+<Aside type="note" title="Current project maturity">
+  NoxRouteNeo is an alpha proof of concept. Use a test VPS, keep backups and
+  review the security model before relying on it for sensitive traffic.
+</Aside>
+
+## Next step
+
+Continue with [Install on a VPS](/getting-started/install/) after creating a
+DuckDNS subdomain and obtaining its token.

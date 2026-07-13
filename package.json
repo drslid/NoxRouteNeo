@@ -21,7 +21,8 @@
     "db:up": "docker compose -f infra/docker/compose.dev.yaml up -d postgres-next",
     "db:down": "docker compose -f infra/docker/compose.dev.yaml down",
     "bootstrap:owner": "pnpm --filter @noxroute/web bootstrap:owner",
-    "web": "pnpm --filter @noxroute/web"
+    "web": "pnpm --filter @noxroute/web",
+    "website": "pnpm --filter @noxroute/website"
   },
   "devDependencies": {
     "auth": "1.6.23",

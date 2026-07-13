@@ -1,0 +1,57 @@
+---
+title: Architecture
+description: Containers, ports, trust boundaries and traffic paths in a NoxRouteNeo VPS.
+---
+
+## Traffic paths
+
+```text
+VPN client
+  -> TCP 443
+  -> Xray: VLESS + XHTTP + REALITY
+  -> per-account traffic gateway
+  -> Internet through the VPS public address
+
+Web browser
+  -> TCP 8443 HTTPS
+  -> Caddy
+  -> Next.js portal and API
+  -> PostgreSQL and private control services
+```
+
+## Services
+
+| Service           | Responsibility                                        | Public exposure                      |
+| ----------------- | ----------------------------------------------------- | ------------------------------------ |
+| `caddy`           | Web HTTPS and certificate management                  | TCP `80` and `8443`                  |
+| `web`             | Next.js portals, Better Auth and application API      | Loopback only                        |
+| `db`              | PostgreSQL application data                           | Private Docker network               |
+| `runtime`         | Xray lifecycle, account synchronization and telemetry | VPN on TCP `443`; health on loopback |
+| `traffic-gateway` | Per-account TCP limiting and flow admission           | Private Docker network               |
+| `security-agent`  | Dedicated nftables ban set for public service ports   | No network API                       |
+
+## Why the portal uses port 8443
+
+REALITY and the VPN endpoint retain direct control of public TCP port `443`.
+Caddy therefore exposes the administration and user portal on HTTPS port `8443`.
+This keeps the POC architecture predictable and avoids placing a TLS router in
+front of REALITY before that shared-port design has been validated.
+
+Multiple DuckDNS names can resolve to the same VPS address, but DNS alone cannot
+make two different processes bind the same IP and TCP port. A compatible layer-4
+router would still need to own public port `443` and forward each connection.
+
+## Trust boundaries
+
+- The database is not published to the host network.
+- The Xray management API is local only.
+- The application does not receive the Docker socket.
+- Only the security agent receives host network-administration capability.
+- The security agent has no HTTP listener, application database credentials or Docker socket.
+- Secrets are generated during installation and excluded from the repository.
+
+## Persistent data
+
+Docker volumes preserve PostgreSQL data, certificates and runtime configuration
+across container and VPS restarts. Back up both the database and instance secrets;
+one without the other is not a complete recoverable installation.

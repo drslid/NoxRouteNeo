@@ -1,0 +1,33 @@
+---
+title: First sign-in
+description: Secure the owner account and create the first NoxRouteNeo VPN user.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+<Steps>
+  1. Open the HTTPS admin URL printed by the installer, including port `8443`.
+  2. Sign in with username `owner` and the generated temporary password. 3.
+  Replace the temporary password with a unique password stored in a password
+  manager. 4. Open account security and enable TOTP two-factor authentication.
+  5. Review the instance defaults in **Settings**, including account duration,
+  quota, speed and device count. 6. Check the dashboard health indicators for
+  the web application, database, Xray and traffic gateway. 7. Create one VPN
+  user and send that person only their username, temporary password and portal
+  URL.
+</Steps>
+
+All roles use the same sign-in address. After authentication, the application
+routes the account to the appropriate admin or user portal.
+
+| Role    | Intended access                                                                |
+| ------- | ------------------------------------------------------------------------------ |
+| `owner` | Full instance control, administrator creation and sensitive account operations |
+| `admin` | VPN user management, settings, activity and operational monitoring             |
+| `user`  | Own usage, devices, credentials and account security                           |
+
+<Aside type="tip" title="Use separate accounts">
+  Keep the owner account for instance administration. Create an ordinary VPN
+  user for daily device connections so owner credentials are never imported into
+  a VPN client.
+</Aside>

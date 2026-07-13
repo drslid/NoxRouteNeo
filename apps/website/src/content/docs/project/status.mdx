@@ -1,0 +1,42 @@
+---
+title: Status and scope
+description: Current maturity, product boundaries and relationship between NoxRouteNeo and NoxRoute.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## NoxRouteNeo
+
+NoxRouteNeo is a free, open-source and self-hosted product. Its intended scope is
+one VPS, local accounts, one VLESS + XHTTP + REALITY endpoint and direct Internet
+egress through the VPS.
+
+Current status: **alpha proof of concept**.
+
+The project needs continued fresh-install testing, client compatibility testing,
+backup restoration exercises, security review and reproducible provider
+benchmarks before a stable release.
+
+## NoxRoute
+
+NoxRoute is a different future product. It is intended to become a managed paid
+service with purchasable access, managed infrastructure, plan limits and
+additional routing services, potentially including Tor-based routes.
+
+NoxRouteNeo is not a trial that expires into NoxRoute. The self-hosted edition
+remains independently usable. Future references to the managed service should be
+informational and non-intrusive, especially inside a privacy-oriented self-hosted
+application.
+
+<Aside type="caution" title="No anonymity or availability guarantee">
+  Neither product should claim to be undetectable, unblock every network or
+  provide absolute anonymity. Tor routing also introduces legal, abuse,
+  performance and provider-policy considerations that require separate review.
+</Aside>
+
+## Contributing
+
+Use [GitHub Issues](https://github.com/drslid/NoxRouteNeo/issues) for reproducible
+bugs and feature proposals. Follow
+[`CONTRIBUTING.md`](https://github.com/drslid/NoxRouteNeo/blob/main/CONTRIBUTING.md)
+for local validation requirements.

@@ -1,0 +1,73 @@
+---
+title: Install on a VPS
+description: Install NoxRouteNeo on Ubuntu or Debian with DuckDNS and one command.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+## Before you begin
+
+Prepare the following:
+
+| Requirement      | Supported minimum                       |
+| ---------------- | --------------------------------------- |
+| Operating system | Fresh Ubuntu LTS or Debian              |
+| Architecture     | `amd64` or `arm64`                      |
+| Access           | `root` or a user with `sudo`            |
+| Network          | Public IPv4 address                     |
+| Memory           | 1 GiB; 2 GiB recommended                |
+| Disk             | 8 GiB total and at least 2 GiB free     |
+| DNS              | One DuckDNS subdomain and account token |
+| Public TCP ports | `80`, `443` and `8443`                  |
+
+Port `443` is used by Xray. The web portal uses HTTPS on `8443`, while `80` is
+used for certificate issuance and redirects. Provider-level firewalls must be
+opened manually because their APIs differ and should not receive broad
+credentials from a generic installer.
+
+## Installation
+
+<Steps>
+1. **Create the DuckDNS name.** Sign in at [duckdns.org](https://www.duckdns.org/), create one subdomain and copy the account token. Do not publish the token.
+
+2. **Prepare the VPS firewall.** Allow inbound TCP traffic on ports `80`, `443` and `8443` in the hosting provider control panel.
+
+3. **Connect with SSH.** Use the root account or a user that can run `sudo`.
+
+4. **Run the pinned installer.** Copy this complete command into the VPS terminal:
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.2/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.2 bash /tmp/noxrouteneo-install.sh
+   ```
+
+5. **Answer the installer prompts.** Select the interface language, enter the DuckDNS name and paste its token. Token input is not echoed.
+
+6. **Wait for the strict health report.** The installer configures Docker, pulls the versioned GHCR images, generates secrets, updates DuckDNS, obtains the certificate, initializes PostgreSQL and starts the complete stack.
+
+7. **Record the one-time credentials.** The final output displays the admin URL, VPN endpoint, owner username and generated temporary password.
+   </Steps>
+
+Expected addresses:
+
+```text
+Admin URL: https://YOUR_DOMAIN.duckdns.org:8443
+VPN endpoint: YOUR_DOMAIN.duckdns.org:443
+```
+
+<Aside
+  type="caution"
+  title="Do not use the moving main branch for normal installation"
+>
+  The command above pins a tested release. Development images tagged `main` can
+  change and should be reserved for disposable test servers.
+</Aside>
+
+## Installer behavior
+
+- Re-running a completed installation verifies it instead of deleting data.
+- An interrupted empty installation can be resumed.
+- Existing application containers or an initialized database are never erased automatically.
+- Docker Engine is installed when it is missing on a supported system.
+- The normal installation pulls prebuilt images and does not compile the application on the VPS.
+
+Proceed to [First sign-in](/getting-started/first-sign-in/).

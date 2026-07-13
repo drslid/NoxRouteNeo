@@ -1,0 +1,33 @@
+---
+title: Comparison
+description: Understand the narrow use case NoxRouteNeo targets relative to broader Xray panels.
+---
+
+NoxRouteNeo does not compete on protocol count. It focuses on a guided,
+single-VPS appliance with separate administrator and user workflows.
+
+| Priority          | NoxRouteNeo approach                                                        |
+| ----------------- | --------------------------------------------------------------------------- |
+| Installation      | One guided Ubuntu/Debian installer and one Docker Compose stack             |
+| VPN standard      | VLESS + XHTTP + REALITY only                                                |
+| DNS and TLS       | DuckDNS automation and Let's Encrypt                                        |
+| User workflow     | Separate portal, per-device subscriptions, QR import and revocation         |
+| Controls          | Quota, expiry, registered-device limit and TCP speed policy                 |
+| Operations        | Live throughput, resource metrics, gateway state, audit and security events |
+| Data minimization | No destination or browsing-history collection                               |
+
+## Choose another solution when
+
+- You need a large protocol catalog.
+- You operate a multi-node commercial panel.
+- You prefer a minimal command-line-only Xray installer.
+- You need provider-specific orchestration or billing today.
+
+Established projects such as 3x-ui have larger communities and wider protocol
+support. Remnawave is more appropriate for a mature multi-node control plane.
+NoxRouteNeo is preferable only when its narrower self-hosted admin/user workflow
+matches the intended deployment.
+
+Read the maintained
+[detailed comparison](https://github.com/drslid/NoxRouteNeo/blob/main/docs/COMPARISON.md)
+for project-by-project notes and validation criteria.

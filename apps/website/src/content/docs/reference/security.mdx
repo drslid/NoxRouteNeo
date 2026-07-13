@@ -1,0 +1,49 @@
+---
+title: Security model
+description: Security boundaries, retained data and realistic privacy expectations for NoxRouteNeo.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## Protections
+
+- Password hashing and one-hour web sessions through Better Auth.
+- Optional TOTP two-factor authentication.
+- Role separation between owner, administrator and VPN user.
+- Per-device VPN identities and revocation.
+- HMAC-digested INCY HWID binding for subscription refreshes.
+- Private PostgreSQL, Xray API and service-control networks.
+- Login and subscription rate limiting.
+- Temporary and permanent source-IP bans managed by a narrow security agent.
+- Thirty-day audit retention and seven-day automatic security-event cleanup.
+- Secret scanning in continuous integration.
+
+## Data intentionally not collected
+
+NoxRouteNeo does not enable destination-level access logging to build a browsing
+history. It does not store visited URLs, DNS queries or requested website names.
+
+It does retain operational information required to run the appliance, including
+accounts, registered devices, aggregate transfer, connection time, audit events,
+source addresses for web security events and recent service health.
+
+## Administrator responsibilities
+
+- Keep the VPS operating system and NoxRouteNeo release current.
+- Use a unique owner password and enable TOTP.
+- Limit SSH access and disable password-based root SSH when possible.
+- Restrict provider firewall rules to required ports.
+- Back up data and test restoration.
+- Review provider terms, local law and abuse reports.
+- Revoke lost devices and former users promptly.
+
+<Aside type="danger" title="Self-hosted does not mean anonymous">
+  The VPS provider can associate the server with its customer, destination
+  services see the VPS address, and applications can identify users through
+  logins, cookies and fingerprinting. NoxRouteNeo improves transport privacy; it
+  does not remove every identity signal.
+</Aside>
+
+Report vulnerabilities privately using the process in
+[`SECURITY.md`](https://github.com/drslid/NoxRouteNeo/blob/main/SECURITY.md). Do
+not publish working exploits or real deployment secrets in a public issue.
