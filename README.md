@@ -53,7 +53,7 @@ NoxRouteNeo is a Docker-based, self-hosted VPN management platform for a single 
 It is designed for people who want a small personal VPN server without operating a multi-node control plane. The VPS hosts the web portal, API, database, certificates, traffic gateway and VPN runtime.
 
 <p align="center">
-  <img src="docs/assets/protected-route.png" alt="A phone and laptop create an encrypted connection through a restricted network to the user's NoxRouteNeo VPS, then reach the Internet using the VPS IP" width="1200">
+  <img src="docs/assets/protected-route.png" alt="Five-step NoxRouteNeo connection: a device crosses a restricted network through an encrypted VLESS, XHTTP and REALITY tunnel to a private VPS before reaching the Internet with the VPS IP" width="1200">
 </p>
 
 <p align="center"><sub>Your device creates an encrypted connection to your own VPS. Websites see the VPS IP; XHTTP + REALITY is designed to resemble common HTTPS patterns. This improves privacy and censorship resistance but does not guarantee anonymity or access on every network.</sub></p>
