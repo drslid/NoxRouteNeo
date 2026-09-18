@@ -30,10 +30,10 @@ You need:
 - TCP ports `80`, `443` and `8443` allowed by the VPS provider firewall;
 - one [DuckDNS](https://www.duckdns.org/) subdomain and its account token.
 
-Run this single command on the VPS. It installs the pinned `v1.0.0-alpha.2` release:
+Run this single command on the VPS. It installs the pinned `v1.0.0-alpha.3` release:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.2/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.2 bash /tmp/noxrouteneo-install.sh
+sudo apt-get update && sudo apt-get install -y curl ca-certificates git && sudo curl -fsSL https://raw.githubusercontent.com/drslid/NoxRouteNeo/v1.0.0-alpha.3/install.sh -o /tmp/noxrouteneo-install.sh && sudo env NOXROUTE_REF=v1.0.0-alpha.3 bash /tmp/noxrouteneo-install.sh
 ```
 
 The installer asks for the interface language, DuckDNS subdomain and DuckDNS token. It then:

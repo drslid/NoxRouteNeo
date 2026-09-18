@@ -40,7 +40,10 @@ export function SignInForm() {
       return;
     }
 
-    window.location.assign("/");
+    // The home route reads the fresh session cookie on the server and redirects
+    // to the role-specific dashboard; refresh so no pre-login layout is reused.
+    router.push("/");
+    router.refresh();
   }
 
   return (

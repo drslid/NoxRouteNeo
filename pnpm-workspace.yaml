@@ -5,9 +5,18 @@ packages:
 # Installs are explicit and frozen in CI/Docker; scripts must never mutate dependencies.
 verifyDepsBeforeRun: false
 
+# Pin transitive packages to versions that clear `pnpm audit --prod --audit-level high`.
+# Selectors (`pkg@major`) stay inside the major each consumer accepts.
 overrides:
+  browserslist: 4.29.0
   esbuild: 0.25.0
-  postcss: 8.5.10
+  "js-yaml@4": 4.3.2
+  "nanoid@3": 3.3.19
+  postcss: 8.5.28
+  sharp: 0.35.4
+  smol-toml: 1.8.0
+  svgo: 4.1.0
+  "undici@7": 7.29.1
 
 allowBuilds:
   "@node-rs/argon2": true
