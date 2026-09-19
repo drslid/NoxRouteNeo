@@ -19,7 +19,7 @@
     "@noxroute/db": "workspace:*",
     "@noxroute/ui": "workspace:*",
     "@tanstack/react-query": "5.101.2",
-    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-table": "9.2.4",
     "better-auth": "1.6.23",
     "drizzle-orm": "0.45.2",
     "lucide-react": "1.24.0",
